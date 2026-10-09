@@ -7,47 +7,14 @@ import { useBase } from "../hooks/base.jsx";
 import { Card, Chip, Cabecalho, Modal } from "../components/ui.jsx";
 import { Orientacao } from "../components/Orientacao.jsx";
 import { TRILHAS, trilhaPorId } from "../lib/trilhas.js";
-import { numero } from "../lib/format.js";
+import { numero, dataCurta, hojeBR } from "../lib/format.js";
+import { CARGOS_MINASLAB } from "../lib/cargosMinasLab.js";
 
 const linhas = (t) => String(t || "").split("\n").map((x) => x.trim()).filter(Boolean);
 const slug = (s) => String(s).normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
 
-// Modelos tirados da planilha de avaliação que existia antes do sistema.
-const MODELOS = [
-  {
-    nome: "Propostas e atendimento",
-    missao: "Transformar pedidos de clientes em propostas certas, rápidas e acompanhadas até a decisão.",
-    responsabilidades: "Elaborar e enviar propostas\nManter o CRM atualizado (responsável, interações, ligações)\nAtendimento e negociação com o cliente\nAgendamentos e coletas\nPós-venda",
-    outrasMetas: "CRM atualizado diariamente\nFollow-up de toda proposta em até 7 dias",
-    criterios: "Organização — CRM, documentos e propostas em ordem\nComunicação — retorno ao cliente, alinhamento com a equipe\nAtendimento ao cliente — negociação, pós-venda\nConformidade ISO 17025 — registros, POPs, rastreabilidade",
-    competencias: "Negociação e tratamento de objeções\nConhecimento técnico dos ensaios\nOrganização do CRM",
-    rotina: "Segunda: revisar propostas abertas há mais de 7 dias\nTodo dia: registrar ligações e interações no CRM\nSexta: conferir propostas da semana sem responsável",
-    estrategia: "Volume com qualidade: proposta certa na primeira vez e acompanhamento até a decisão. Foco do trimestre: follow-up em 7 dias e zero proposta sem responsável.",
-    trilhas: ["crm-sem-furos", "follow-up", "proposta-sem-erro", "spin"],
-  },
-  {
-    nome: "Licitações, pedidos e estoque",
-    missao: "Garantir que a MinasLab dispute as licitações certas, sem perder por documento, e que pedidos e estoque não travem a operação.",
-    responsabilidades: "Licitações: análise de edital, documentação, prazos\nPedidos e estoque\nSuporte às propostas\nAtendimento",
-    outrasMetas: "Planilhas atualizadas\nLigações de prospecção\nChecklist semanal cumprido",
-    criterios: "Organização — estoque, documentos, planilhas\nComunicação — repasse de informações, alinhamento com a equipe\nAtendimento ao cliente — agilidade, cordialidade, resolução\nConformidade ISO 17025 — registros, POPs, rastreabilidade",
-    competencias: "Leitura de edital e habilitação\nControle de prazos",
-    rotina: "Segunda: conferir prazos de licitações da semana\nQuarta: conferir validade de certidões\nSexta: checklist semanal de pedidos e estoque",
-    estrategia: "Disputar menos licitações e ganhar mais: escolher bem o edital, zero perda por documento e registrar o motivo de cada perda.",
-    trilhas: ["licitacoes", "crm-sem-furos", "atendimento"],
-  },
-  {
-    nome: "Suporte operacional",
-    missao: "Fazer a amostra e a informação chegarem certas ao laboratório, da primeira vez.",
-    responsabilidades: "Atendimento\nEnvio de frascos e materiais\nProtocolo e recebimento de amostras\nPlanilhas de controle",
-    outrasMetas: "Planilhas atualizadas\nChecklist semanal cumprido\nLigações quando solicitado",
-    criterios: "Organização — ambiente, materiais e registros\nComunicação — repasse de informações, alinhamento com a equipe\nAtendimento ao cliente — agilidade, cordialidade, resolução\nConformidade ISO 17025 — registros, POPs, rastreabilidade",
-    competencias: "Conferência de OS e protocolo\nComunicação com o laboratório",
-    rotina: "Todo dia: conferir OS abertas contra a proposta\nSexta: checklist semanal",
-    estrategia: "Zero retrabalho em OS: conferência antes de liberar e um só canal de aviso ao laboratório.",
-    trilhas: ["os-correta", "atendimento"],
-  },
-];
+// Modelos: as descrições de cargo da MinasLab, revisadas (lib/cargosMinasLab.js).
+const MODELOS = CARGOS_MINASLAB.map((c) => ({ ...c, criteriosTexto: c.criterios.map((x) => (x.desc ? `${x.nome} — ${x.desc}` : x.nome)).join("\n") }));
 
 export function paraRegistro(f) {
   const criterios = linhas(f.criteriosTexto).map((l) => {
@@ -56,19 +23,30 @@ export function paraRegistro(f) {
   });
   return {
     id: f.id, nome: f.nome.trim(), descricao: f.descricao || "", missao: f.missao || "",
+    identificacao: { setor: f.identificacao?.setor || "", vinculo: f.identificacao?.vinculo || "", colabora: f.identificacao?.colabora || "" },
+    autonomia: f.autonomia || "", requisitos: f.requisitos || "", kpis: f.kpis || "", condicoes: f.condicoes || "",
+    revisadoEm: hojeBR(),
     responsabilidades: f.responsabilidades || "", outrasMetas: f.outrasMetas || "",
     metasPadrao: { propostas: numero(f.metasPadrao?.propostas), aprovacao: numero(f.metasPadrao?.aprovacao), ligacoes: numero(f.metasPadrao?.ligacoes) },
     criterios, competencias: f.competencias || "", rotina: f.rotina || "", estrategia: f.estrategia || "", trilhas: f.trilhas || [],
   };
 }
 
-const paraForm = (r) => ({ ...r, metasPadrao: { ...(r.metasPadrao || {}) }, trilhas: r.trilhas || [], criteriosTexto: (r.criterios || []).map((c) => (c.desc ? `${c.nome} — ${c.desc}` : c.nome)).join("\n") });
+const paraForm = (r) => ({ ...r, identificacao: { ...(r.identificacao || {}) }, metasPadrao: { ...(r.metasPadrao || {}) }, trilhas: r.trilhas || [], criteriosTexto: (r.criterios || []).map((c) => (c.desc ? `${c.nome} — ${c.desc}` : c.nome)).join("\n") });
 
 export default function Funcoes() {
   const { dados, equipe, gravar, remover } = useBase();
   const [editando, setEditando] = useState(null);
+  const [vendo, setVendo] = useState(null);
   const [msg, setMsg] = useState("");
   const funcoes = [...dados.funcoes].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  const faltam = MODELOS.filter((m) => !dados.funcoes.some((f) => f.nome === m.nome));
+  const carregarCargos = async () => {
+    try {
+      for (const m of faltam) await gravar("funcoes", paraRegistro(m));
+      setMsg(`${faltam.length} descrição(ões) de cargo carregada(s). Revise metas e indicadores de cada uma.`);
+    } catch (e) { setMsg(e.message); }
+  };
 
   const aplicarMetas = async (f) => {
     const pessoas = equipe.filter((m) => m.funcaoId === f.id);
@@ -86,12 +64,13 @@ export default function Funcoes() {
       <Orientacao tela="funcoes" />
       {msg && <div className="aviso marca">{msg}</div>}
 
-      {funcoes.length === 0 && (
+      {faltam.length > 0 && (
         <Card>
-          <h2>Comece por um modelo</h2>
-          <p className="suave peq">Montados a partir da planilha de avaliação. Ajuste com a descrição de cargo de vocês.</p>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {MODELOS.map((m) => <button key={m.nome} type="button" className="btn claro" onClick={() => setEditando({ ...m, metasPadrao: {}, criteriosTexto: m.criterios })}>{m.nome}</button>)}
+          <h2>Descrições de cargo da MinasLab</h2>
+          <p className="suave peq">As 4 descrições enviadas, revisadas: indicadores com forma de medir e meta, requisitos de competência (ISO/IEC 17025, 6.2.2), autonomia e dono de cada tarefa compartilhada.</p>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <button type="button" className="btn" onClick={carregarCargos}>Carregar {faltam.length === MODELOS.length ? "as 4 descrições" : `as ${faltam.length} que faltam`}</button>
+            <span className="suave peq">{faltam.map((m) => m.nome).join(" · ")}</span>
           </div>
         </Card>
       )}
@@ -116,6 +95,7 @@ export default function Funcoes() {
               )}
               {(f.trilhas || []).length > 0 && <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{f.trilhas.map((t) => <Chip key={t}>{trilhaPorId(t)?.nome || t}</Chip>)}</div>}
               <div style={{ display: "flex", gap: 8, marginTop: "auto", flexWrap: "wrap" }}>
+                <button type="button" className="btn mini" onClick={() => setVendo(f)}>Descrição de cargo</button>
                 <button type="button" className="btn claro mini" onClick={() => setEditando(paraForm(f))}>Editar</button>
                 <button type="button" className="btn claro mini" onClick={() => aplicarMetas(f)}>Aplicar metas às pessoas</button>
                 <button type="button" className="btn perigo mini" onClick={() => window.confirm(pessoas.length ? `${pessoas.length} pessoa(s) estão nesta função e voltarão aos critérios padrão. Apagar?` : "Apagar esta função?") && remover("funcoes", f.id)}>Apagar</button>
@@ -124,10 +104,8 @@ export default function Funcoes() {
           );
         })}
       </div>
-      {funcoes.length > 0 && (
-        <div className="suave peq">Modelos disponíveis: {MODELOS.map((m) => <button key={m.nome} type="button" className="btn claro mini" style={{ marginLeft: 6 }} onClick={() => setEditando({ ...m, metasPadrao: {}, criteriosTexto: m.criterios })}>{m.nome}</button>)}</div>
-      )}
       {editando && <Editor inicial={editando} aoFechar={() => setEditando(null)} />}
+      {vendo && <VerDescricao f={vendo} aoFechar={() => setVendo(null)} />}
     </>
   );
 }
@@ -150,9 +128,18 @@ function Editor({ inicial, aoFechar }) {
     <Modal titulo={inicial.id ? `Editar ${inicial.nome}` : "Nova função"} aoFechar={aoFechar}>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div className="campo"><label htmlFor="f-nome">Nome da função</label><input id="f-nome" className="entrada" {...campo("nome")} /></div>
-        {area("f-desc", "Descrição do cargo", "descricao", 5, "Cole aqui a descrição oficial do cargo. Ela fica guardada como referência.")}
-        {area("f-missao", "Missão (uma frase)", "missao", 2)}
-        {area("f-resp", "Responsabilidades", "responsabilidades", 4, "Uma por linha.")}
+        <div className="rotulo">Identificação</div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <input className="entrada" style={{ flex: "1 1 180px" }} aria-label="Setor" placeholder="Setor" value={f.identificacao?.setor || ""} onChange={(e) => setF((x) => ({ ...x, identificacao: { ...x.identificacao, setor: e.target.value } }))} />
+          <input className="entrada" style={{ flex: "1 1 180px" }} aria-label="Vínculo hierárquico" placeholder="Vínculo hierárquico" value={f.identificacao?.vinculo || ""} onChange={(e) => setF((x) => ({ ...x, identificacao: { ...x.identificacao, vinculo: e.target.value } }))} />
+        </div>
+        <input className="entrada" aria-label="Colabora com" placeholder="Colabora com" value={f.identificacao?.colabora || ""} onChange={(e) => setF((x) => ({ ...x, identificacao: { ...x.identificacao, colabora: e.target.value } }))} />
+        {area("f-missao", "Missão do cargo", "missao", 3)}
+        {area("f-resp", "Responsabilidades principais", "responsabilidades", 8, "Uma por linha. Linha começando com “# ” vira título de grupo.")}
+        {area("f-aut", "Autonomia (o que decide sozinho e o que precisa de aprovação)", "autonomia", 3, "Uma por linha.")}
+        {area("f-req", "Requisitos de competência (formação, experiência, treinamentos obrigatórios)", "requisitos", 4, "Uma por linha. A ISO/IEC 17025 pede esses requisitos documentados por função.")}
+        {area("f-kpi", "Indicadores de desempenho", "kpis", 5, "Um por linha: “Indicador — como medir — meta”.")}
+        {area("f-cond", "Condições de trabalho", "condicoes", 2, "Uma por linha.")}
         <div className="rotulo">Metas padrão da função</div>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           <div className="campo"><label htmlFor="f-m1">Propostas/mês</label><input id="f-m1" className="entrada num" type="number" min="0" {...meta("propostas")} /></div>
@@ -161,7 +148,8 @@ function Editor({ inicial, aoFechar }) {
         </div>
         {area("f-outras", "Outras metas de atividade", "outrasMetas", 3, "Uma por linha (ex.: checklist semanal cumprido).")}
         {area("f-crit", "Critérios técnicos da avaliação", "criteriosTexto", 4, "Um por linha, no formato “Nome — descrição”. Substituem os quatro critérios padrão para quem tem esta função.")}
-        {area("f-comp", "Competências a desenvolver (PDI)", "competencias", 3, "Uma por linha.")}
+        {area("f-comp", "Competências necessárias (base do PDI)", "competencias", 3, "Uma por linha.")}
+        {area("f-desc", "Observações", "descricao", 2)}
         {area("f-rot", "Rotina semanal", "rotina", 3, "Uma por linha.")}
         {area("f-est", "Estratégia da função", "estrategia", 3, "Como esta função ganha o jogo: foco do trimestre e o que não fazer.")}
         <div className="rotulo">Treinamentos recomendados</div>
@@ -176,6 +164,57 @@ function Editor({ inicial, aoFechar }) {
           <button type="button" className="btn" onClick={salvar}>Salvar</button>
         </div>
       </div>
+    </Modal>
+  );
+}
+
+// Ficha de descrição de cargo no formato dos documentos da MinasLab; imprime em A4.
+export function DocumentoCargo({ f }) {
+  const id = f.identificacao || {};
+  const grupos = [];
+  for (const l of linhas(f.responsabilidades)) {
+    if (l.startsWith("# ")) grupos.push({ titulo: l.slice(2), itens: [] });
+    else { if (!grupos.length) grupos.push({ titulo: "", itens: [] }); grupos.at(-1).itens.push(l); }
+  }
+  const kpis = linhas(f.kpis).map((l) => l.split(/\s+—\s+/));
+  const lista = (t) => <ul>{linhas(t).map((x) => <li key={x}>{x}</li>)}</ul>;
+  let n = 0;
+  const sec = (titulo) => <h3 className="doc-sec">{++n}. {titulo}</h3>;
+  return (
+    <div className="doc-cargo">
+      <div className="doc-topo"><span>Minas<b>Lab</b></span><span>Descrição de cargo{f.revisadoEm ? ` · revisada em ${dataCurta(f.revisadoEm)}` : ""}</span></div>
+      <h2 className="doc-titulo">{f.nome}</h2>
+      {sec("Identificação do cargo")}
+      <table className="doc-tab"><tbody>
+        <tr><th>Cargo</th><td>{f.nome}</td></tr>
+        {id.setor && <tr><th>Setor</th><td>{id.setor}</td></tr>}
+        {id.vinculo && <tr><th>Vínculo hierárquico</th><td>{id.vinculo}</td></tr>}
+        {id.colabora && <tr><th>Colabora com</th><td>{id.colabora}</td></tr>}
+      </tbody></table>
+      {f.missao && <>{sec("Missão do cargo")}<p>{f.missao}</p></>}
+      {grupos.length > 0 && <>{sec("Responsabilidades principais")}{grupos.map((g, k) => <div key={k}>{g.titulo && <h4>{n}.{k + 1}. {g.titulo}</h4>}<ul>{g.itens.map((x) => <li key={x}>{x}</li>)}</ul></div>)}</>}
+      {linhas(f.autonomia).length > 0 && <>{sec("Autonomia")}{lista(f.autonomia)}</>}
+      {linhas(f.requisitos).length > 0 && <>{sec("Requisitos de competência")}{lista(f.requisitos)}</>}
+      {linhas(f.competencias).length > 0 && <>{sec("Competências necessárias")}{lista(f.competencias)}</>}
+      {kpis.length > 0 && <>{sec("Indicadores de desempenho")}
+        <table className="doc-tab"><thead><tr><th>Indicador</th><th>Como medir</th><th>Meta</th></tr></thead><tbody>
+          {kpis.map((k, i) => <tr key={i}><td>{k[0]}</td><td>{k[1] || ""}</td><td>{k[2] || ""}</td></tr>)}
+        </tbody></table></>}
+      {linhas(f.condicoes).length > 0 && <>{sec("Condições de trabalho")}{lista(f.condicoes)}</>}
+      <div className="doc-assin"><span>Colaborador(a): ______________________________</span><span>Gestão: ______________________________</span><span>Data: ____/____/______</span></div>
+    </div>
+  );
+}
+
+function VerDescricao({ f, aoFechar }) {
+  return (
+    <Modal titulo="Descrição de cargo" aoFechar={aoFechar}>
+      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginBottom: 12 }}>
+        <button type="button" className="btn claro" onClick={aoFechar}>Fechar</button>
+        <button type="button" className="btn" onClick={() => window.print()}>Imprimir / salvar PDF</button>
+      </div>
+      <DocumentoCargo f={f} />
+      <div className="impressao" aria-hidden="true"><DocumentoCargo f={f} /></div>
     </Modal>
   );
 }
