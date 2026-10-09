@@ -34,6 +34,7 @@ export const CONFIG_PADRAO = {
   pesos: { metas: 50, tec: 30, comp: 20 },
   desconto: 0.5,
   descontoMax: 2,
+  metaValorMensal: null,
 };
 
 const VAZIO = { enviadas: 0, aprovadas: 0, recusadas: 0, abertas: 0, valorAprovado: 0 };
@@ -186,7 +187,7 @@ const media = (xs) => (xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : n
  * (metas automáticas, técnicos, comportamentais); nota final = base − desconto
  * por ocorrência (com teto). Bônus pela NOTA FINAL e só com tudo preenchido.
  */
-export function avaliar({ resumo, membro, mes, notas = {}, nOcorrencias = 0, config }) {
+export function avaliar({ resumo, membro, mes, notas = {}, nOcorrencias = 0, config, criteriosTecnicos }) {
   const cfg = configCompleta(config);
   const metas = metasDe(membro);
   const r = realizado(resumo, membro, mes);
@@ -208,7 +209,8 @@ export function avaliar({ resumo, membro, mes, notas = {}, nOcorrencias = 0, con
     const n = numero(notas[id]);
     return n == null ? null : Math.max(0, Math.min(10, n));
   };
-  const tec = CRITERIOS_TECNICOS.map((c) => ({ ...c, nota: val(c.id) }));
+  const listaTec = criteriosTecnicos?.length ? criteriosTecnicos : CRITERIOS_TECNICOS;
+  const tec = listaTec.map((c) => ({ ...c, nota: val(c.id) }));
   const comp = CRITERIOS_COMPORTAMENTAIS.map((c) => ({ ...c, nota: val(c.id) }));
 
   const grupos = [
@@ -247,4 +249,32 @@ export function serie(resumo, membroOuEquipe, ateMes, n = 9) {
     const r = membroOuEquipe === "equipe" ? totaisMes(resumo, mes) : realizado(resumo, membroOuEquipe, mes);
     return { mes, enviadas: r.enviadas, aprovadas: r.aprovadas, valorAprovado: r.valorAprovado };
   });
+}
+
+/** Critérios técnicos da função (cargo) da pessoa; sem função, os padrão. */
+export function criteriosDaFuncao(funcao) {
+  const lista = (funcao?.criterios || []).filter((c) => c?.nome?.trim());
+  return lista.length ? lista.map((c, i) => ({ id: c.id || `f${i}`, nome: c.nome, desc: c.desc || "" })) : CRITERIOS_TECNICOS;
+}
+
+/** Estilo de liderança sugerido pelo estágio da pessoa na tarefa (Liderança Situacional). */
+export const ESTAGIOS = [
+  { id: "iniciante", nome: "Iniciante", estilo: "Direcionar", texto: "Diga o quê, como e quando. Acompanhe de perto e corrija rápido." },
+  { id: "aprendendo", nome: "Aprendendo", estilo: "Orientar", texto: "Explique o porquê, ouça as dúvidas e siga dando direção com mais conversa." },
+  { id: "capaz", nome: "Capaz, mas inseguro", estilo: "Apoiar", texto: "Ela sabe fazer: pergunte como pretende fazer e dê confiança, não instrução." },
+  { id: "autonomo", nome: "Autônomo", estilo: "Delegar", texto: "Combine o resultado e o prazo e saia da frente. Acompanhe pelos números." },
+];
+
+/**
+ * Previsão de fechamento do mês (valor aprovado).
+ * base = já aprovado + Σ valor × chance das propostas abertas;
+ * pessimista = aprovado + só as com chance ≥ 50%; otimista = base + metade do que falta.
+ */
+export function previsaoMes({ aprovado, abertas }) {
+  const soma = (xs) => xs.reduce((s, a) => s + a.valor * a.chance, 0);
+  const base = aprovado + soma(abertas);
+  const pess = aprovado + soma(abertas.filter((a) => a.chance >= 0.5));
+  const total = aprovado + abertas.reduce((s, a) => s + a.valor, 0);
+  const otim = base + (total - base) / 2;
+  return { pessimista: pess, base, otimista: otim, emAberto: total - aprovado };
 }

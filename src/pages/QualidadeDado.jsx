@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { useBase } from "../hooks/base.jsx";
 import { Card, Chip, Kpi, Cabecalho } from "../components/ui.jsx";
 import { SeletorMes } from "../components/Layout.jsx";
+import { Orientacao } from "../components/Orientacao.jsx";
 import { propostasSemResponsavel } from "../services/crm.js";
 import { brl, pct, mesLongo, mesCurto, mesesAte, dataCurta } from "../lib/format.js";
 import { totaisMes } from "../lib/calculos.js";
@@ -35,6 +36,7 @@ export default function QualidadeDado() {
       <Cabecalho sobre="Qualidade do dado · Fase 0" titulo={`Propostas sem responsável em ${mesLongo(mes).toLowerCase()}`} sub="Meta da Fase 0: menos de 5% das propostas do mês sem responsável.">
         <SeletorMes />
       </Cabecalho>
+      <Orientacao tela="dado" />
 
       <div className="grade grade-kpi">
         <Kpi rotulo="Sem responsável" valor={t.semResponsavel} sub={`de ${t.enviadas} propostas no mês`} />

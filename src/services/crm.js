@@ -1,7 +1,13 @@
-// Números do CRM, já somados no servidor (Edge Function ml-comercial).
+// Números do CRM, já somados no servidor (Edge Function ml-comercial, só leitura).
 import { COMERCIAL } from "../lib/api.js";
 import { comCracha } from "../lib/sessao.js";
 
-export const resumoCRM = (meses = 13) => comCracha(COMERCIAL, { action: "resumo", meses });
+const chamar = (action, corpo = {}) => comCracha(COMERCIAL, { action, ...corpo });
 
-export const propostasSemResponsavel = (mes) => comCracha(COMERCIAL, { action: "semResponsavel", mes });
+export const resumoCRM = (meses = 36) => chamar("resumo", { meses });
+export const propostasSemResponsavel = (mes) => chamar("semResponsavel", { mes });
+export const cockpitCRM = () => chamar("cockpit");
+export const funilCRM = (meses = 6) => chamar("funil", { meses });
+export const carteiraCRM = () => chamar("carteira");
+export const licitacoesCRM = () => chamar("licitacoes");
+export const npsCRM = () => chamar("nps");

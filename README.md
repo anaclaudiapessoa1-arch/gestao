@@ -43,10 +43,12 @@ supabase functions deploy ml-comercial --project-ref reoghclxripktzpdwhiy --no-v
 
 Usa o segredo `ML_JWT_SECRET`, que já existe no projeto (é o mesmo do painel).
 
-## Roteiro
+## Telas
 
-- Fase 0 — Qualidade do dado (propostas sem responsável) ✔
-- Fase 1 — Visão do mês, pessoas e feedback, ocorrências, avaliação e bônus, estratégias, equipe e metas ✔ · treinamentos (próximo)
-- Fase 2 — Cockpit do dia, previsão, funil, reuniões prontas
-- Fase 3 — Carteira, satisfação (NPS), licitações
-- Fase 4 — OKRs do trimestre, diário de decisões
+- **Resultado:** Cockpit do dia (previsão do mês, alertas, ações do dia), Visão do mês, Funil, Qualidade do dado.
+- **Pessoas:** Pessoas e feedback (roteiro de 1:1, PDI, estágio e estilo de liderança), Avaliação e bônus, Ocorrências.
+- **Clientes:** Carteira (curva ABC, clientes em risco, contratos e recorrências), Satisfação (NPS), Licitações.
+- **Gestão:** Estratégias e objetivos do trimestre, Decisões (diário com revisão), Funções e cargos, Equipe e metas (inclui desligamento).
+- **Desenvolvimento:** Reuniões prontas (apresentação + roteiro + ata, impressão em PDF), Treinamentos (9 trilhas, registro e eficácia).
+
+Função `ml-comercial` (só leitura): `resumo`, `semResponsavel`, `cockpit`, `funil`, `carteira`, `licitacoes`, `nps`.

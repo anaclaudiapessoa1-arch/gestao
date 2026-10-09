@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { realizado, totaisMes, mediaAnterior, pontos, roteiroFeedback, avaliar, situacao, metasDe, serie } from "./calculos.js";
+import { realizado, totaisMes, mediaAnterior, pontos, roteiroFeedback, avaliar, situacao, metasDe, serie, criteriosDaFuncao, previsaoMes } from "./calculos.js";
 import { somarMeses, mesesAte, mesLongo, mesDeData } from "./format.js";
 
 // Números fictícios, no formato que a função ml-comercial devolve.
@@ -99,4 +99,21 @@ test("avaliação: sem meta definida, metas ficam pendentes e o peso vai para os
 test("série da equipe soma o total do mês", () => {
   const s = serie(resumo, "equipe", "2026-09", 2);
   assert.deepEqual(s.map((x) => x.enviadas), [56, 87]);
+});
+
+test("critérios técnicos da função substituem os padrão", () => {
+  const f = { criterios: [{ id: "edital", nome: "Análise de edital" }, { nome: "" }] };
+  const c = criteriosDaFuncao(f);
+  assert.deepEqual(c.map((x) => x.id), ["edital"]);
+  assert.equal(criteriosDaFuncao(null).length, 4);
+  const res = { porMes: { "2026-09": { porPessoa: { pessoaA: { enviadas: 70, aprovadas: 63 } } } } };
+  const a = avaliar({ resumo: res, membro: pessoa, mes: "2026-09", notas: { edital: 9, pro: 9, eq: 9, resp: 9, qual: 9 }, criteriosTecnicos: c });
+  assert.equal(a.completa, true);
+});
+
+test("previsão do mês: base, pessimista e otimista", () => {
+  const p = previsaoMes({ aprovado: 10000, abertas: [{ valor: 4000, chance: 0.6 }, { valor: 2000, chance: 0.1 }] });
+  assert.equal(p.base, 10000 + 2400 + 200);
+  assert.equal(p.pessimista, 12400);
+  assert.equal(p.otimista, 12600 + (16000 - 12600) / 2);
 });

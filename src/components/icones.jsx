@@ -23,3 +23,5 @@ export const IcMenu = I(<><path d="M4 6h16" /><path d="M4 12h16" /><path d="M4 1
 export const IcMais = I(<><path d="M12 5v14" /><path d="M5 12h14" /></>);
 export const IcLixo = I(<><path d="M4 7h16" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M6 7l1 13h10l1-13" /><path d="M9 7V4h6v3" /></>);
 export const IcRecarregar = I(<><path d="M20 11a8 8 0 1 0-2.3 5.7" /><path d="M20 4v7h-7" /></>);
+export const IcBalanca = I(<><path d="M12 3v18" /><path d="M5 21h14" /><path d="M4 7h16" /><path d="m4 7-3 7a4 4 0 0 0 6 0z" /><path d="m20 7-3 7a4 4 0 0 0 6 0z" /></>);
+export const IcPasta = I(<><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><path d="M3 13h18" /></>);

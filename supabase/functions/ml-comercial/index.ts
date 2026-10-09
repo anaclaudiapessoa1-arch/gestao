@@ -17,7 +17,7 @@
 // ============================================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { agregarPropostas, mesBR } from "./agregar.mjs";
+import { agregarPropostas, mesBR, probabilidadesPorIdade, chanceDaIdade, carteiraClientes } from "./agregar.mjs";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -90,6 +90,17 @@ async function lerTudo(tabela: string, campos: string, filtro?: (q: any) => any)
     if (!data || data.length < 1000) break;
   }
   return linhas;
+}
+
+async function nomesClientes(ids: unknown[]) {
+  const unicos = [...new Set(ids.filter(Boolean) as string[])];
+  const nomes: Record<string, string> = {};
+  for (let i = 0; i < unicos.length; i += 200) {
+    const { data, error } = await sb.from("clientes").select("id,razao_social,nome_fantasia").in("id", unicos.slice(i, i + 200));
+    if (error) throw error;
+    for (const c of data ?? []) nomes[c.id] = String(c.nome_fantasia || c.razao_social || "").replace(/\s+/g, " ").trim();
+  }
+  return nomes;
 }
 
 function mesAtualBR() {
@@ -168,6 +179,115 @@ Deno.serve(async (req) => {
           }))
           .sort((a, b) => b.data.localeCompare(a.data));
         return resp({ mes, itens });
+      }
+
+      // Propostas em aberto, com idade, última interação e chance de aprovação.
+      case "cockpit": {
+        const hoje = new Date().toISOString();
+        const [props, inter] = await Promise.all([
+          lerTudo("propostas", "id,numero_proposta,cliente_id,responsavel_comercial_id,status,valor,data_envio,data_aceite,data_recusa,created_at,ativo,deleted_at"),
+          lerTudo("interacoes", "id,proposta_id,ocorrido_em", (q) => q.not("proposta_id", "is", null)),
+        ]);
+        const faixas = probabilidadesPorIdade(props, hoje);
+        const ultimaInter: Record<string, string> = {};
+        for (const i of inter) if (!ultimaInter[i.proposta_id] || i.ocorrido_em > ultimaInter[i.proposta_id]) ultimaInter[i.proposta_id] = i.ocorrido_em;
+        const limite = Date.now() - 365 * 86400000;
+        const abertas = props
+          .filter((p) => p.ativo !== false && !p.deleted_at && String(p.status || "").toUpperCase() === "ENVIADA" && Date.parse(p.data_envio || p.created_at) >= limite)
+          .map((p) => {
+            const data = String(p.data_envio || p.created_at);
+            const idade = Math.floor((Date.now() - Date.parse(data)) / 86400000);
+            return {
+              id: p.id, numero: p.numero_proposta ?? "", clienteId: p.cliente_id, responsavelId: p.responsavel_comercial_id,
+              valor: Number(p.valor) || 0, data: data.slice(0, 10), idade, ultimaInteracao: ultimaInter[p.id]?.slice(0, 10) ?? null,
+              chance: chanceDaIdade(faixas, idade),
+            };
+          })
+          .sort((a, b) => b.valor - a.valor)
+          .slice(0, 500);
+        const nomes = await nomesClientes(abertas.map((a) => a.clienteId));
+        for (const a of abertas as any[]) { a.cliente = nomes[a.clienteId] ?? ""; delete a.clienteId; }
+        return resp({ geradoEm: hoje, faixas, abertas });
+      }
+
+      // Funil: leads → oportunidades → propostas → aprovadas, num período.
+      case "funil": {
+        const meses = Math.min(Math.max(Number(body.meses ?? 6), 1), 24);
+        const desde = somarMeses(mesAtualBR(), -(meses - 1));
+        const noPeriodo = (iso: string | null) => { const m = mesBR(iso); return !!m && m >= desde; };
+        const [leads, opps, props] = await Promise.all([
+          lerTudo("leads", "id,status,origem,created_at,data_primeiro_atendimento,cliente_convertido_id,ativo,deleted_at"),
+          lerTudo("oportunidades", "id,estagio,status,valor_estimado,created_at,ativo,deleted_at"),
+          lerTudo("propostas", "id,status,created_at,data_envio,ativo,deleted_at"),
+        ]);
+        const vivos = (x: any) => x.ativo !== false && !x.deleted_at;
+        const L = leads.filter((l) => vivos(l) && noPeriodo(l.created_at));
+        const st = (s: unknown) => String(s || "").trim().toUpperCase();
+        const contar = (xs: any[], f: (x: any) => string) => xs.reduce((m: Record<string, number>, x) => { const k = f(x) || "—"; m[k] = (m[k] || 0) + 1; return m; }, {});
+        const O = opps.filter((o) => vivos(o) && noPeriodo(o.created_at));
+        const P = props.filter((p) => vivos(p) && !["RASCUNHO", "CANCELADA"].includes(st(p.status)) && noPeriodo(p.data_envio || p.created_at));
+        const parados = leads.filter((l) => vivos(l) && st(l.status) === "EM ATENDIMENTO" && Date.now() - Date.parse(l.data_primeiro_atendimento || l.created_at) > 30 * 86400000).length;
+        const serie: Record<string, { leads: number; convertidos: number }> = {};
+        for (const l of L) { const m = mesBR(l.created_at)!; serie[m] ??= { leads: 0, convertidos: 0 }; serie[m].leads++; if (l.cliente_convertido_id || st(l.status) === "CONVERTIDO") serie[m].convertidos++; }
+        return resp({
+          desde, meses,
+          leads: { total: L.length, porStatus: contar(L, (l) => st(l.status)), porOrigem: contar(L, (l) => String(l.origem || "—")), convertidos: L.filter((l) => l.cliente_convertido_id || st(l.status) === "CONVERTIDO").length, paradosMais30d: parados },
+          oportunidades: { total: O.length, porEstagio: contar(O, (o) => `${st(o.estagio)}`), ganhas: O.filter((o) => ["GANHA", "APROVADA"].includes(st(o.status))).length, perdidas: O.filter((o) => ["PERDIDA", "RECUSADA"].includes(st(o.status))).length },
+          propostas: { enviadas: P.length, aprovadas: P.filter((p) => st(p.status) === "APROVADA").length, recusadas: P.filter((p) => st(p.status) === "RECUSADA").length, abertas: P.filter((p) => st(p.status) === "ENVIADA").length },
+          serieLeads: serie,
+        });
+      }
+
+      // Carteira: clientes por valor aprovado (ABC), em risco, contratos e recorrências.
+      case "carteira": {
+        const hoje = new Date().toISOString();
+        const hojeD = hoje.slice(0, 10);
+        const mais = (d: number) => new Date(Date.now() + d * 86400000).toISOString().slice(0, 10);
+        const [props, contratos, recs] = await Promise.all([
+          lerTudo("propostas", "id,cliente_id,status,valor,data_envio,data_aceite,created_at,ativo,deleted_at"),
+          lerTudo("contratos", "id,numero_contrato,cliente_id,status,periodicidade,data_fim,ativo,deleted_at"),
+          lerTudo("recorrencias_clientes", "id,cliente_id,periodicidade,proxima_previsao,ultima_execucao,status,ativo"),
+        ]);
+        const clientes = carteiraClientes(props, hoje).slice(0, 400);
+        const vencendo = contratos
+          .filter((c) => c.ativo !== false && !c.deleted_at && String(c.status || "").toUpperCase() === "ATIVO" && c.data_fim && c.data_fim >= mais(-30) && c.data_fim <= mais(90))
+          .map((c) => ({ id: c.id, numero: c.numero_contrato ?? "", clienteId: c.cliente_id, periodicidade: c.periodicidade ?? "", dataFim: c.data_fim }))
+          .sort((a, b) => a.dataFim.localeCompare(b.dataFim));
+        const recAtivas = recs.filter((r) => r.ativo !== false && r.proxima_previsao);
+        const proximas = recAtivas
+          .filter((r) => r.proxima_previsao <= mais(30))
+          .map((r) => ({ id: r.id, clienteId: r.cliente_id, periodicidade: r.periodicidade ?? "", proxima: r.proxima_previsao, ultima: r.ultima_execucao, atrasada: r.proxima_previsao < hojeD }))
+          .sort((a, b) => a.proxima.localeCompare(b.proxima));
+        const nomes = await nomesClientes([...clientes.map((c) => c.clienteId), ...vencendo.map((c) => c.clienteId), ...proximas.slice(0, 150).map((r) => r.clienteId)]);
+        const comNome = (x: any) => { const { clienteId, ...r } = x; return { ...r, cliente: nomes[clienteId] ?? "" }; };
+        return resp({
+          geradoEm: hoje,
+          clientes: clientes.map(comNome),
+          contratosVencendo: vencendo.map(comNome),
+          recorrencias: { ativas: recAtivas.length, atrasadas: proximas.filter((r) => r.atrasada).length, proximos30d: proximas.filter((r) => !r.atrasada).length, lista: proximas.slice(0, 150).map(comNome) },
+        });
+      }
+
+      // Licitações e prazos.
+      case "licitacoes": {
+        const [lics, prazos] = await Promise.all([
+          lerTudo("licitacoes", "id,numero,orgao,modalidade,objeto,municipio,uf,status,data_sessao,valor_estimado,valor_proposta,valor_homologado,responsavel_id,resultado,motivo_perda,deleted_at"),
+          lerTudo("licitacao_prazos", "id,licitacao_id,tipo,titulo,prazo,status,responsavel_id"),
+        ]);
+        const vivas = lics.filter((l) => !l.deleted_at).map((l) => { const { deleted_at, ...r } = l; return r; });
+        const ids = new Set(vivas.map((l) => l.id));
+        const abertos = prazos
+          .filter((p) => ids.has(p.licitacao_id) && p.prazo && !["CONCLUIDO", "CONCLUÍDO", "CANCELADO"].includes(String(p.status || "").toUpperCase()))
+          .sort((a, b) => String(a.prazo).localeCompare(String(b.prazo)));
+        return resp({ licitacoes: vivas, prazos: abertos });
+      }
+
+      // Pesquisas de satisfação registradas no CRM.
+      case "nps": {
+        const linhas = await lerTudo("satisfacao_nps", "id,cliente_id,nota,comentario,canal,respondido_em,created_at,deleted_at");
+        const vivas = linhas.filter((n) => !n.deleted_at);
+        const nomes = await nomesClientes(vivas.map((n) => n.cliente_id));
+        return resp({ respostas: vivas.map((n) => ({ id: n.id, cliente: nomes[n.cliente_id] ?? "", nota: n.nota, comentario: n.comentario ?? "", canal: n.canal ?? "", data: String(n.respondido_em || n.created_at || "").slice(0, 10) })) });
       }
 
       default:

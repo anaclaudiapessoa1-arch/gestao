@@ -17,6 +17,14 @@ export const COLECOES = {
   avaliacoes: "rh_comercial_avaliacoes",
   feedbacks: "rh_comercial_feedbacks",
   estrategias: "rh_comercial_estrategias",
+  funcoes: "rh_comercial_funcoes",
+  pdi: "rh_comercial_pdi",
+  treinamentos: "rh_comercial_treinamentos",
+  reunioes: "rh_comercial_reunioes",
+  decisoes: "rh_comercial_decisoes",
+  objetivos: "rh_comercial_objetivos",
+  acoes: "rh_comercial_acoes",
+  nps: "rh_comercial_nps",
 };
 
 const chamar = (action, corpo = {}) => comCracha(SYNC, { action, ...corpo });

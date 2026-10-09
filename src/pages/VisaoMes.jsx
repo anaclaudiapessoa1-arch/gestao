@@ -1,6 +1,7 @@
 import { useBase } from "../hooks/base.jsx";
 import { Card, Chip, Kpi, Cabecalho, Pontos, GraficoMeses, iniciais } from "../components/ui.jsx";
 import { SeletorMes } from "../components/Layout.jsx";
+import { Orientacao } from "../components/Orientacao.jsx";
 import { navegar } from "../lib/rota.js";
 import { brl, pct, mesLongo, mesCurto, mesAtual, somarMeses } from "../lib/format.js";
 import { realizado, totaisMes, metasDe, situacao, pontos, serie } from "../lib/calculos.js";
@@ -40,6 +41,7 @@ export default function VisaoMes() {
       <Cabecalho sobre="Visão do mês" titulo={mesLongo(mes)} sub={emAndamento ? "Mês em andamento: números até hoje." : "Mês fechado."}>
         <SeletorMes />
       </Cabecalho>
+      <Orientacao tela="visao" />
 
       <div className="grade grade-kpi">
         <Kpi rotulo="Propostas da equipe" valor={t.enviadas} sub={`mês anterior: ${anterior.enviadas}`} />

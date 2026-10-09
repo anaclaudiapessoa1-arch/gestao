@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useBase } from "../hooks/base.jsx";
 import { Card, Chip, Cabecalho, Modal } from "../components/ui.jsx";
-import { dataCurta, hojeBR } from "../lib/format.js";
+import { dataCurta, hojeBR, mesAtual, numero } from "../lib/format.js";
+import { Orientacao } from "../components/Orientacao.jsx";
 
 const STATUS = [
   { id: "afazer", rotulo: "A fazer", tom: "neutro" },
@@ -35,6 +36,9 @@ export default function Estrategias() {
       <Cabecalho sobre="Estratégias" titulo="Plano de ação do setor" sub="Cada ação com o porquê (o número), como medir, dono e prazo.">
         <button type="button" className="btn" onClick={() => setEditando({ status: "afazer" })}>Nova ação</button>
       </Cabecalho>
+      <Orientacao tela="estrategias" />
+      <Objetivos />
+      <h2 style={{ marginTop: 8 }}>Plano de ação</h2>
 
       {lista.length === 0 && <Card><p className="suave" style={{ margin: 0 }}>Nenhuma ação cadastrada. Comece pelas sugestões abaixo, tiradas dos números do CRM.</p></Card>}
 
@@ -100,6 +104,78 @@ function Editor({ inicial, aoFechar }) {
           <div className="campo" style={{ flex: "0 1 170px" }}><label htmlFor="e-prazo">Prazo</label><input id="e-prazo" type="date" className="entrada" {...campo("prazo")} /></div>
         </div>
         {erro && <div className="aviso ruim">{erro}</div>}
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <button type="button" className="btn claro" onClick={aoFechar}>Cancelar</button>
+          <button type="button" className="btn" onClick={salvar}>Salvar</button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+const trimestreAtual = () => { const [a, m] = mesAtual().split("-").map(Number); return `${a}-T${Math.ceil(m / 3)}`; };
+
+// Objetivos do trimestre (OKR): até 3 objetivos, cada um com resultados-chave numéricos.
+function Objetivos() {
+  const { dados, gravar, remover } = useBase();
+  const tri = trimestreAtual();
+  const [edit, setEdit] = useState(null);
+  const lista = dados.objetivos.filter((o) => o.trimestre === tri);
+  return (
+    <Card>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "baseline" }}>
+        <h2>Objetivos do trimestre · {tri.replace("-T", " · T")}</h2>
+        {lista.length < 3 && <button type="button" className="btn claro mini" onClick={() => setEdit({ trimestre: tri, titulo: "", krs: [{ texto: "", alvo: "", atual: "" }] })}>Novo objetivo</button>}
+      </div>
+      {lista.length === 0 && <div className="vazio peq">Defina até 3 objetivos para o trimestre, cada um com 3 a 5 resultados-chave com número.</div>}
+      {lista.map((o) => (
+        <div key={o.id} style={{ borderTop: "1px solid var(--linha-fraca)", paddingTop: 12, marginTop: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+            <b style={{ fontWeight: 600 }}>{o.titulo}</b>
+            <span style={{ display: "flex", gap: 6 }}>
+              <button type="button" className="btn claro mini" onClick={() => setEdit(o)}>Editar</button>
+              <button type="button" className="btn perigo mini" onClick={() => window.confirm("Apagar este objetivo?") && remover("objetivos", o.id)}>Apagar</button>
+            </span>
+          </div>
+          {(o.krs || []).map((k, i) => {
+            const alvo = numero(k.alvo), atual = numero(k.atual);
+            const p = alvo ? Math.max(0, Math.min(1, (atual || 0) / alvo)) : 0;
+            return (
+              <div key={i} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 140px 70px", gap: 10, alignItems: "center", marginTop: 8 }}>
+                <span className="peq">{k.texto}</span>
+                <div className="barra"><div style={{ width: `${p * 100}%`, background: p >= 0.7 ? "var(--ok)" : p >= 0.4 ? "#d97706" : "var(--ruim)" }} /></div>
+                <span className="peq tnum">{atual ?? "—"} / {alvo ?? "—"}</span>
+              </div>
+            );
+          })}
+        </div>
+      ))}
+      {edit && <EditorObjetivo inicial={edit} aoFechar={() => setEdit(null)} gravar={gravar} />}
+    </Card>
+  );
+}
+
+function EditorObjetivo({ inicial, aoFechar, gravar }) {
+  const [o, setO] = useState({ ...inicial, krs: (inicial.krs || []).map((k) => ({ ...k })) });
+  const setKr = (i, k, v) => setO((x) => ({ ...x, krs: x.krs.map((kr, j) => (j === i ? { ...kr, [k]: v } : kr)) }));
+  const salvar = async () => {
+    if (!o.titulo.trim()) return;
+    await gravar("objetivos", { ...o, titulo: o.titulo.trim(), krs: o.krs.filter((k) => k.texto.trim()) });
+    aoFechar();
+  };
+  return (
+    <Modal titulo={inicial.id ? "Editar objetivo" : "Novo objetivo"} aoFechar={aoFechar}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div className="campo"><label htmlFor="o-tit">Objetivo (qualitativo, inspirador)</label><input id="o-tit" className="entrada" value={o.titulo} onChange={(e) => setO({ ...o, titulo: e.target.value })} placeholder="Ex.: Ser o laboratório que responde mais rápido na região" /></div>
+        <div className="rotulo">Resultados-chave (com número)</div>
+        {o.krs.map((k, i) => (
+          <div key={i} style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <input className="entrada" style={{ flex: "3 1 220px" }} aria-label={`Resultado-chave ${i + 1}`} placeholder="Ex.: Propostas respondidas em até 24 h" value={k.texto} onChange={(e) => setKr(i, "texto", e.target.value)} />
+            <input className="entrada num" aria-label="Atual" placeholder="atual" value={k.atual ?? ""} onChange={(e) => setKr(i, "atual", e.target.value)} />
+            <input className="entrada num" aria-label="Alvo" placeholder="alvo" value={k.alvo ?? ""} onChange={(e) => setKr(i, "alvo", e.target.value)} />
+          </div>
+        ))}
+        {o.krs.length < 5 && <div><button type="button" className="btn claro mini" onClick={() => setO({ ...o, krs: [...o.krs, { texto: "", alvo: "", atual: "" }] })}>+ resultado-chave</button></div>}
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
           <button type="button" className="btn claro" onClick={aoFechar}>Cancelar</button>
           <button type="button" className="btn" onClick={salvar}>Salvar</button>

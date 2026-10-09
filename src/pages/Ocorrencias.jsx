@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useBase } from "../hooks/base.jsx";
 import { Card, Chip, Cabecalho } from "../components/ui.jsx";
 import { SeletorMes } from "../components/Layout.jsx";
+import { Orientacao } from "../components/Orientacao.jsx";
 import { mesLongo, mesNome, hojeBR, dataCurta, mesDeData } from "../lib/format.js";
 import { TIPOS_OCORRENCIA } from "../lib/calculos.js";
 
@@ -39,6 +40,7 @@ export default function Ocorrencias() {
       <Cabecalho sobre="Ocorrências" titulo={mesLongo(mes)} sub={`Registre o fato na hora. Cada ocorrência individual desconta ${String(config.desconto).replace(".", ",")} da nota do mês.`}>
         <SeletorMes />
       </Cabecalho>
+      <Orientacao tela="ocorrencias" />
       <div className="grade grade-2" style={{ alignItems: "start" }}>
         <Card>
           <h2>Registrar ocorrência</h2>

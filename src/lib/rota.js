@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 const ler = () => {
   const h = (typeof window !== "undefined" ? window.location.hash : "").replace(/^#\/?/, "");
   const [tela = "", ...resto] = h.split("/");
-  return { tela: tela || "visao", param: resto.join("/") || "" };
+  return { tela: tela || "cockpit", param: resto.join("/") || "" };
 };
 
 export function useRota() {

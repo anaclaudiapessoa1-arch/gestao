@@ -2,10 +2,11 @@ import { useState } from "react";
 import { useBase } from "../hooks/base.jsx";
 import { Card, Chip, Cabecalho } from "../components/ui.jsx";
 import { SeletorMes } from "../components/Layout.jsx";
+import { Orientacao } from "../components/Orientacao.jsx";
 import { SeletorPessoa } from "./Pessoas.jsx";
 import { navegar } from "../lib/rota.js";
 import { brl, nota, mesLongo, mesNome } from "../lib/format.js";
-import { avaliar } from "../lib/calculos.js";
+import { avaliar, criteriosDaFuncao } from "../lib/calculos.js";
 
 export default function Avaliacao({ param }) {
   const { equipe, mes } = useBase();
@@ -15,6 +16,7 @@ export default function Avaliacao({ param }) {
       <Cabecalho sobre="Avaliação e bônus" titulo={mesLongo(mes)} sub="Metas vêm do CRM; os demais critérios você dá de 0 a 10.">
         <SeletorMes />
       </Cabecalho>
+      <Orientacao tela="avaliacao" />
       {!membro ? (
         <Card><button type="button" className="btn" onClick={() => navegar("equipe")}>Montar a equipe e as metas</button></Card>
       ) : (
@@ -29,7 +31,8 @@ export default function Avaliacao({ param }) {
 }
 
 function Ficha({ membro }) {
-  const { resumo, mes, config, dados, gravar, ocorrenciasDe } = useBase();
+  const { resumo, mes, config, dados, gravar, ocorrenciasDe, funcaoDe } = useBase();
+  const funcao = funcaoDe(membro);
   const id = `${membro.id}_${mes}`;
   const salva = dados.avaliacoes.find((a) => a.id === id);
   const [notas, setNotas] = useState(() => ({ ...(salva?.notas || {}) }));
@@ -37,7 +40,7 @@ function Ficha({ membro }) {
   const [msg, setMsg] = useState("");
   const fechada = !!salva?.fechada;
   const nOc = ocorrenciasDe(membro.id).length;
-  const a = avaliar({ resumo, membro, mes, notas, nOcorrencias: nOc, config });
+  const a = avaliar({ resumo, membro, mes, notas, nOcorrencias: nOc, config, criteriosTecnicos: criteriosDaFuncao(funcao) });
   const mudou = JSON.stringify(notas) !== JSON.stringify(salva?.notas || {});
 
   const guardar = async (fechar) => {
@@ -75,7 +78,7 @@ function Ficha({ membro }) {
             {a.auto.map((c) => (
               <tr key={c.id}><td><b style={{ fontWeight: 600 }}>{c.nome}</b><div className="suave peq">{c.desc}</div></td><td className="tnum" style={{ textAlign: "right", font: "600 18px Poppins, sans-serif" }}>{nota(c.nota)}</td></tr>
             ))}
-            <tr className="linha-grupo"><td colSpan={2}>Técnicos (peso {config.pesos.tec}%)</td></tr>
+            <tr className="linha-grupo"><td colSpan={2}>Técnicos{funcao ? ` da função ${funcao.nome}` : ""} (peso {config.pesos.tec}%)</td></tr>
             {a.tec.map(linha)}
             <tr className="linha-grupo"><td colSpan={2}>Comportamentais (peso {config.pesos.comp}%)</td></tr>
             {a.comp.map(linha)}
@@ -116,10 +119,10 @@ function Ficha({ membro }) {
 }
 
 function ResumoEquipe() {
-  const { equipe, resumo, mes, config, dados, ocorrenciasDe } = useBase();
+  const { equipe, resumo, mes, config, dados, ocorrenciasDe, funcaoDe } = useBase();
   const linhas = equipe.map((m) => {
     const salva = dados.avaliacoes.find((a) => a.id === `${m.id}_${mes}`);
-    const a = avaliar({ resumo, membro: m, mes, notas: salva?.notas || {}, nOcorrencias: ocorrenciasDe(m.id).length, config });
+    const a = avaliar({ resumo, membro: m, mes, notas: salva?.notas || {}, nOcorrencias: ocorrenciasDe(m.id).length, config, criteriosTecnicos: criteriosDaFuncao(funcaoDe(m)) });
     return { m, a, fechada: !!salva?.fechada };
   });
   const total = linhas.reduce((s, l) => s + (l.fechada ? l.a.bonus || 0 : 0), 0);

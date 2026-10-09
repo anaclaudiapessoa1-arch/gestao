@@ -11,15 +11,30 @@ import Avaliacao from "./pages/Avaliacao.jsx";
 import Ocorrencias from "./pages/Ocorrencias.jsx";
 import Estrategias from "./pages/Estrategias.jsx";
 import Equipe from "./pages/Equipe.jsx";
+import Cockpit from "./pages/Cockpit.jsx";
+import Funil from "./pages/Funil.jsx";
+import Carteira from "./pages/Carteira.jsx";
+import Satisfacao from "./pages/Satisfacao.jsx";
+import Licitacoes from "./pages/Licitacoes.jsx";
+import Reunioes from "./pages/Reunioes.jsx";
+import Treinamentos from "./pages/Treinamentos.jsx";
+import Decisoes from "./pages/Decisoes.jsx";
+import Funcoes from "./pages/Funcoes.jsx";
 
-const TELAS = { visao: VisaoMes, dado: QualidadeDado, pessoas: Pessoas, avaliacao: Avaliacao, ocorrencias: Ocorrencias, estrategias: Estrategias, equipe: Equipe };
+const TELAS = {
+  cockpit: Cockpit, visao: VisaoMes, funil: Funil, dado: QualidadeDado,
+  pessoas: Pessoas, avaliacao: Avaliacao, ocorrencias: Ocorrencias,
+  carteira: Carteira, satisfacao: Satisfacao, licitacoes: Licitacoes,
+  estrategias: Estrategias, decisoes: Decisoes, funcoes: Funcoes, equipe: Equipe,
+  reunioes: Reunioes, treinamentos: Treinamentos,
+};
 
 function Telas() {
   const { tela, param } = useRota();
   const { carregando, erro, recarregar } = useBase();
-  const Tela = TELAS[tela] || VisaoMes;
+  const Tela = TELAS[tela] || Cockpit;
   return (
-    <Layout tela={TELAS[tela] ? tela : "visao"}>
+    <Layout tela={TELAS[tela] ? tela : "cockpit"}>
       {erro ? (
         <div className="aviso ruim">
           {erro} <button type="button" className="btn mini claro" style={{ marginLeft: 8 }} onClick={recarregar}>Tentar de novo</button>

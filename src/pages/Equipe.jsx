@@ -2,14 +2,19 @@ import { useState } from "react";
 import { useBase } from "../hooks/base.jsx";
 import { Card, Chip, Cabecalho, Modal, iniciais } from "../components/ui.jsx";
 import { getSessao } from "../lib/sessao.js";
-import { mesAtual, mesesAte, somarMeses, numero, brl } from "../lib/format.js";
+import { mesAtual, mesesAte, somarMeses, numero, brl, hojeBR, dataCurta } from "../lib/format.js";
+import { Orientacao } from "../components/Orientacao.jsx";
+import { navegar } from "../lib/rota.js";
 import { mediaAnterior, realizado } from "../lib/calculos.js";
 
 const norm = (s) => String(s || "").normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
 
 export default function Equipe() {
-  const { equipe, dados, resumo, gravar, config, elenco } = useBase();
+  const { equipe, dados, resumo, gravar, config, elenco, funcaoDe } = useBase();
   const [editando, setEditando] = useState(null);
+  const [desligando, setDesligando] = useState(null);
+  const ativosRH = new Set(elenco.map((p) => p.id));
+  const saiuDoRH = (m) => m.rhPessoaId && elenco.length > 0 && !ativosRH.has(m.rhPessoaId);
   const [msg, setMsg] = useState("");
   const inativos = dados.equipe.filter((m) => m.ativo === false);
 
@@ -32,7 +37,7 @@ export default function Equipe() {
         const [pri, ...resto] = norm(c.nome).split(" ");
         const ult = resto.at(-1);
         const rh = elenco.filter((p) => { const n = norm(p.nome).split(" "); return n[0] === pri && (!ult || n.includes(ult)); });
-        await gravar("equipe", { nome: c.nome, crmProfileId: c.id, rhPessoaId: rh.length === 1 ? rh[0].id : "", funcao: "Comercial", metas, ativo: true, ordem: ordem++ });
+        await gravar("equipe", { nome: c.nome, crmProfileId: c.id, rhPessoaId: rh.length === 1 ? rh[0].id : "", funcaoId: "", metas, ativo: true, ordem: ordem++ });
       }
       setMsg(`${candidatos.length} pessoa(s) adicionada(s). Confira funções e metas.`);
     } catch (e) {
@@ -45,6 +50,13 @@ export default function Equipe() {
       <Cabecalho sobre="Equipe e metas" titulo="Quem é avaliado e com quais metas" sub="Cada pessoa é ligada ao seu usuário do CRM (de onde vêm os números) e ao cadastro do RH.">
         <button type="button" className="btn" onClick={() => setEditando({ ativo: true, metas: {} })}>Adicionar pessoa</button>
       </Cabecalho>
+      <Orientacao tela="equipe" />
+      {dados.funcoes.length === 0 && (
+        <div className="aviso alerta">Nenhuma função cadastrada. Cadastre as funções (cargos) para cada pessoa ter metas padrão, critérios e rotina da sua função. <button type="button" className="btn mini claro" onClick={() => navegar("funcoes")}>Ir para Funções</button></div>
+      )}
+      {equipe.filter(saiuDoRH).map((m) => (
+        <div key={m.id} className="aviso ruim">{m.nome} não aparece mais como ativa no RH. Se foi desligada, registre o desligamento aqui. <button type="button" className="btn mini perigo" onClick={() => setDesligando(m)}>Desligar</button></div>
+      ))}
 
       {candidatos.length > 0 && (
         <div className="aviso marca" style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", justifyContent: "space-between" }}>
@@ -62,19 +74,37 @@ export default function Equipe() {
               {equipe.length === 0 && <tr><td colSpan={6} className="suave">Ninguém na equipe ainda.</td></tr>}
               {equipe.map((m) => (
                 <tr key={m.id}>
-                  <td><div style={{ display: "flex", gap: 10, alignItems: "center" }}><span className="avatar">{iniciais(m.nome)}</span><span><b style={{ display: "block", fontWeight: 600 }}>{m.nome}</b><span className="suave peq">{m.funcao}</span></span></div></td>
-                  <td><div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><Chip tom={m.crmProfileId ? "ok" : "alerta"}>{m.crmProfileId ? "CRM" : "Sem CRM"}</Chip><Chip tom={m.rhPessoaId ? "ok" : "neutro"}>{m.rhPessoaId ? "RH" : "Sem RH"}</Chip></div></td>
+                  <td><div style={{ display: "flex", gap: 10, alignItems: "center" }}><span className="avatar">{iniciais(m.nome)}</span><span><b style={{ display: "block", fontWeight: 600 }}>{m.nome}</b><span className="suave peq">{funcaoDe(m)?.nome || m.funcao || "Sem função"}</span></span></div></td>
+                  <td><div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><Chip tom={m.crmProfileId ? "ok" : "alerta"}>{m.crmProfileId ? "CRM" : "Sem CRM"}</Chip><Chip tom={saiuDoRH(m) ? "ruim" : m.rhPessoaId ? "ok" : "neutro"}>{saiuDoRH(m) ? "Inativa no RH" : m.rhPessoaId ? "RH" : "Sem RH"}</Chip>{!m.funcaoId && <Chip tom="alerta">Sem função</Chip>}</div></td>
                   <td className="tnum">{m.metas?.propostas || "—"}</td>
                   <td className="tnum">{m.metas?.aprovacao ? `${m.metas.aprovacao}%` : "—"}</td>
                   <td className="tnum">{m.metas?.ligacoes || "—"}</td>
-                  <td style={{ textAlign: "right" }}><button type="button" className="btn claro mini" onClick={() => setEditando(m)}>Editar</button></td>
+                  <td style={{ textAlign: "right", whiteSpace: "nowrap" }}><button type="button" className="btn claro mini" onClick={() => setEditando(m)}>Editar</button> <button type="button" className="btn perigo mini" onClick={() => setDesligando(m)}>Desligar</button></td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </Card>
-      {inativos.length > 0 && <div className="suave peq">Fora da equipe: {inativos.map((m) => m.nome).join(", ")} (abra Editar em “Adicionar pessoa” com o mesmo vínculo para reativar).</div>}
+      {inativos.length > 0 && (
+        <Card semPad>
+          <div className="card-cab"><h2>Desligados e fora da equipe</h2><span className="suave peq">O histórico (avaliações, feedbacks, ocorrências) continua guardado.</span></div>
+          <div className="tabela-caixa">
+            <table>
+              <tbody>
+                {inativos.map((m) => (
+                  <tr key={m.id}>
+                    <td><b style={{ fontWeight: 600 }}>{m.nome}</b><div className="suave peq">{funcaoDe(m)?.nome || m.funcao}</div></td>
+                    <td className="peq">{m.desligadoEm ? `Saiu em ${dataCurta(m.desligadoEm)}` : "Fora da equipe"}{m.tipoSaida ? ` · ${m.tipoSaida}` : ""}</td>
+                    <td style={{ textAlign: "right" }}><button type="button" className="btn claro mini" onClick={() => window.confirm(`Reativar ${m.nome} na equipe?`) && gravar("equipe", { ...m, ativo: true, desligadoEm: "", tipoSaida: "" })}>Reativar</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+      {desligando && <Desligar membro={desligando} aoFechar={() => setDesligando(null)} />}
 
       <Regras config={config} />
       {editando && <EditorPessoa inicial={editando} aoFechar={() => setEditando(null)} />}
@@ -84,7 +114,15 @@ export default function Equipe() {
 
 function EditorPessoa({ inicial, aoFechar }) {
   const { resumo, elenco, gravar, dados } = useBase();
-  const [m, setM] = useState({ nome: "", funcao: "", crmProfileId: "", rhPessoaId: "", ...inicial, metas: { ...(inicial.metas || {}) } });
+  const [m, setM] = useState({ nome: "", funcao: "", funcaoId: "", crmProfileId: "", rhPessoaId: "", ...inicial, metas: { ...(inicial.metas || {}) } });
+  const funcoes = [...dados.funcoes].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  const escolherFuncao = (id) => {
+    const f = dados.funcoes.find((x) => x.id === id);
+    setM((x) => {
+      const vazias = !numero(x.metas.propostas) && !numero(x.metas.aprovacao) && !numero(x.metas.ligacoes);
+      return { ...x, funcaoId: id, funcao: f?.nome || x.funcao, metas: f && vazias ? { ...f.metasPadrao } : x.metas };
+    });
+  };
   const [erro, setErro] = useState("");
   const perfis = Object.entries(resumo?.pessoas || {}).map(([id, p]) => ({ id, ...p })).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
   const sugestao = m.crmProfileId ? mediaAnterior(resumo, { crmProfileId: m.crmProfileId }, mesAtual()) : null;
@@ -103,7 +141,14 @@ function EditorPessoa({ inicial, aoFechar }) {
     <Modal titulo={inicial.id ? `Editar ${inicial.nome}` : "Adicionar pessoa"} aoFechar={aoFechar}>
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div className="campo"><label htmlFor="p-nome">Nome</label><input id="p-nome" className="entrada" value={m.nome} onChange={(e) => setM({ ...m, nome: e.target.value })} /></div>
-        <div className="campo"><label htmlFor="p-func">Função</label><input id="p-func" className="entrada" value={m.funcao || ""} placeholder="Ex.: Propostas e atendimento" onChange={(e) => setM({ ...m, funcao: e.target.value })} /></div>
+        <div className="campo">
+          <label htmlFor="p-func">Função (cargo)</label>
+          <select id="p-func" className="entrada" value={m.funcaoId || ""} onChange={(e) => escolherFuncao(e.target.value)}>
+            <option value="">— sem função —</option>
+            {funcoes.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
+          </select>
+          {funcoes.length === 0 && <span className="suave peq">Cadastre as funções em Gestão › Funções e cargos.</span>}
+        </div>
         <div className="campo">
           <label htmlFor="p-crm">Usuário no CRM (de onde vêm os números)</label>
           <select id="p-crm" className="entrada" value={m.crmProfileId || ""} onChange={(e) => {
@@ -128,11 +173,6 @@ function EditorPessoa({ inicial, aoFechar }) {
           <div className="campo"><label htmlFor="p-m2">Aprovação mín. (%)</label><input id="p-m2" className="entrada num" type="number" min="0" max="100" value={m.metas.aprovacao ?? ""} onChange={setMeta("aprovacao")} /></div>
           <div className="campo"><label htmlFor="p-m3">Ligações/dia</label><input id="p-m3" className="entrada num" type="number" min="0" value={m.metas.ligacoes ?? ""} onChange={setMeta("ligacoes")} /></div>
         </div>
-        {inicial.id && (
-          <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 14 }}>
-            <input type="checkbox" checked={m.ativo !== false} onChange={(e) => setM({ ...m, ativo: e.target.checked })} /> Faz parte da equipe
-          </label>
-        )}
         {erro && <div className="aviso ruim">{erro}</div>}
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
           <button type="button" className="btn claro" onClick={aoFechar}>Cancelar</button>
@@ -157,7 +197,7 @@ function Regras({ config }) {
         id: "geral",
         bonus: { f1: n(c.bonus.f1), v1: n(c.bonus.v1), f2: n(c.bonus.f2), v2: n(c.bonus.v2) },
         pesos: { metas: n(c.pesos.metas), tec: n(c.pesos.tec), comp: n(c.pesos.comp) },
-        desconto: n(c.desconto), descontoMax: n(c.descontoMax),
+        desconto: n(c.desconto), descontoMax: n(c.descontoMax), metaValorMensal: numero(c.metaValorMensal),
       });
       setMsg("Regras salvas.");
     } catch (e) { setMsg(e.message); }
@@ -167,7 +207,10 @@ function Regras({ config }) {
   );
   return (
     <Card>
-      <h2>Regras de avaliação e bônus</h2>
+      <h2>Meta do setor e regras de avaliação</h2>
+      <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginTop: 12 }}>
+        <div className="campo"><label htmlFor="r-meta">Meta de valor aprovado no mês (R$)</label><input id="r-meta" className="entrada" style={{ width: 180 }} type="number" min="0" value={c.metaValorMensal ?? ""} onChange={(e) => setC({ ...c, metaValorMensal: e.target.value })} /><span className="suave peq">Usada na previsão do Cockpit.</span></div>
+      </div>
       <div className="suave peq" style={{ marginTop: 4 }}>Valem para todos. Por envolver remuneração, valide com a contabilidade antes de comunicar à equipe.</div>
       <div style={{ display: "flex", gap: 24, flexWrap: "wrap", marginTop: 16 }}>
         {Num({ id: "r-f1", rot: "Faixa 1: nota ≥", valor: c.bonus.f1, onChange: set("bonus", "f1"), step: "0.5" })}
@@ -188,5 +231,40 @@ function Regras({ config }) {
         {msg && <span className="peq">{msg}</span>}
       </div>
     </Card>
+  );
+}
+
+function Desligar({ membro, aoFechar }) {
+  const { gravar } = useBase();
+  const [data, setData] = useState(hojeBR());
+  const [tipo, setTipo] = useState("Desligamento");
+  const [erro, setErro] = useState("");
+  const confirmar = async () => {
+    try {
+      await gravar("equipe", { ...membro, ativo: false, desligadoEm: data, tipoSaida: tipo });
+      aoFechar();
+    } catch (e) { setErro(e.message); }
+  };
+  return (
+    <Modal titulo={`Desligar ${membro.nome}`} aoFechar={aoFechar}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <p className="peq" style={{ margin: 0 }}>A pessoa sai da equipe, das metas, da avaliação e das reuniões a partir de agora. Avaliações, feedbacks e ocorrências antigos continuam guardados. O cadastro no RH e no CRM não muda: o desligamento oficial é feito no RH do painel e o usuário do CRM é desativado no próprio CRM.</p>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          <div className="campo"><label htmlFor="d-data">Data de saída</label><input id="d-data" type="date" className="entrada" value={data} onChange={(e) => setData(e.target.value)} /></div>
+          <div className="campo" style={{ flex: "1 1 200px" }}>
+            <label htmlFor="d-tipo">Tipo</label>
+            <select id="d-tipo" className="entrada" value={tipo} onChange={(e) => setTipo(e.target.value)}>
+              <option>Desligamento</option><option>Pedido de demissão</option><option>Mudança de setor</option><option>Fim de contrato</option><option>Outro</option>
+            </select>
+          </div>
+        </div>
+        <div className="suave peq">Por ser dado pessoal, o motivo detalhado não é registrado aqui.</div>
+        {erro && <div className="aviso ruim">{erro}</div>}
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <button type="button" className="btn claro" onClick={aoFechar}>Cancelar</button>
+          <button type="button" className="btn perigo" onClick={confirmar}>Confirmar desligamento</button>
+        </div>
+      </div>
+    </Modal>
   );
 }

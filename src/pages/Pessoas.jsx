@@ -5,6 +5,8 @@ import { SeletorMes } from "../components/Layout.jsx";
 import { navegar } from "../lib/rota.js";
 import { pct, mesLongo, mesNome, mesCurto, dataCurta, hojeBR, brl } from "../lib/format.js";
 import { realizado, metasDe, mediaAnterior, pontos, roteiroFeedback, serie } from "../lib/calculos.js";
+import { Desenvolvimento } from "../components/Desenvolvimento.jsx";
+import { Orientacao } from "../components/Orientacao.jsx";
 
 export function SeletorPessoa({ atual, tela }) {
   const { equipe } = useBase();
@@ -20,7 +22,7 @@ export function SeletorPessoa({ atual, tela }) {
 }
 
 export default function Pessoas({ param }) {
-  const { equipe, resumo, mes, ocorrenciasDe, dados, gravar, remover } = useBase();
+  const { equipe, resumo, mes, ocorrenciasDe, dados, gravar, remover, funcaoDe } = useBase();
   const membro = equipe.find((m) => m.id === param) || equipe[0];
   const [texto, setTexto] = useState("");
   const [comb, setComb] = useState("");
@@ -65,12 +67,13 @@ export default function Pessoas({ param }) {
       <Cabecalho sobre="Pessoas e feedback" titulo={mesLongo(mes)}>
         <SeletorMes />
       </Cabecalho>
+      <Orientacao tela="pessoas" />
       <SeletorPessoa atual={membro.id} tela="pessoas" />
 
       <Card style={{ display: "flex", flexWrap: "wrap", gap: 20, alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
           <span className="avatar grande">{iniciais(membro.nome)}</span>
-          <div><h2 style={{ fontSize: 22 }}>{membro.nome}</h2><div className="suave peq">{membro.funcao}</div></div>
+          <div><h2 style={{ fontSize: 22 }}>{membro.nome}</h2><div className="suave peq">{funcaoDe(membro)?.nome || membro.funcao || "Sem função"}</div></div>
         </div>
         <div style={{ display: "flex", gap: 28, flexWrap: "wrap" }}>
           <Mini rot="Propostas" val={metas.propostas ? `${r.enviadas} / ${metas.propostas}` : r.enviadas} sub={avg != null ? `média anterior ${Math.round(avg)}` : "sem histórico"} />
@@ -142,6 +145,7 @@ export default function Pessoas({ param }) {
           ))}
         </Card>
       </div>
+      <Desenvolvimento membro={membro} />
     </>
   );
 }
