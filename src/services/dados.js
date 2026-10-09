@@ -25,6 +25,8 @@ export const COLECOES = {
   objetivos: "rh_comercial_objetivos",
   acoes: "rh_comercial_acoes",
   nps: "rh_comercial_nps",
+  destaque: "rh_comercial_destaque",          // avaliação da liderança (Destaque do Mês)
+  apresentacoes: "rh_comercial_apresentacoes", // apresentações editáveis (estúdio)
 };
 
 const chamar = (action, corpo = {}) => comCracha(SYNC, { action, ...corpo });

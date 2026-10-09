@@ -2,7 +2,7 @@
 // contratos e recorrências que viram a venda mais fácil do mês.
 import { useState } from "react";
 import { useCRM } from "../hooks/base.jsx";
-import { Card, Chip, Kpi, Cabecalho } from "../components/ui.jsx";
+import { Card, Chip, Kpi, Cabecalho, Abas, Paginacao, usePaginacao } from "../components/ui.jsx";
 import { Orientacao } from "../components/Orientacao.jsx";
 import { carteiraCRM } from "../services/crm.js";
 import { brl, pct, dataCurta } from "../lib/format.js";
@@ -19,8 +19,10 @@ export default function Carteira() {
   const risco = clientes.filter((x) => x.emRisco && x.curva !== "C");
   const lista = clientes
     .filter((x) => filtro === "todos" || (filtro === "risco" ? x.emRisco : x.curva === filtro))
-    .filter((x) => !busca || x.cliente.toLowerCase().includes(busca.toLowerCase()))
-    .slice(0, 200);
+    .filter((x) => !busca || x.cliente.toLowerCase().includes(busca.toLowerCase()));
+  const pagCli = usePaginacao(lista, 12, filtro + busca);
+  const pagCon = usePaginacao(d?.contratosVencendo || [], 12);
+  const pagRec = usePaginacao(d?.recorrencias?.lista || [], 12);
 
   return (
     <>
@@ -40,11 +42,7 @@ export default function Carteira() {
             <Kpi rotulo="Recorrências" valor={d.recorrencias.atrasadas} sub={`atrasadas · ${d.recorrencias.proximos30d} nos próximos 30 dias`} tomSub={d.recorrencias.atrasadas ? "ruim" : undefined} />
           </div>
 
-          <div className="pilulas" role="tablist">
-            {[["clientes", "Clientes"], ["contratos", "Contratos vencendo"], ["recorrencias", "Recorrências"]].map(([id, nome]) => (
-              <button key={id} type="button" role="tab" aria-selected={aba === id} className={`pilula${aba === id ? " ativa" : ""}`} onClick={() => setAba(id)}>{nome}</button>
-            ))}
-          </div>
+          <Abas valor={aba} aoMudar={setAba} abas={[["clientes", "Clientes", clientes.length], ["contratos", "Contratos vencendo", d.contratosVencendo.length], ["recorrencias", "Recorrências", d.recorrencias.lista.length]]} />
 
           {aba === "clientes" && (
             <Card semPad>
@@ -60,7 +58,7 @@ export default function Carteira() {
                 <table>
                   <thead><tr><th>Cliente</th><th>Curva</th><th>Aprovado 12 meses</th><th>Aprovações</th><th>Última</th><th>Costuma comprar a cada</th><th>Situação</th></tr></thead>
                   <tbody>
-                    {lista.map((x) => (
+                    {pagCli.itens.map((x) => (
                       <tr key={x.cliente + x.ultima}>
                         <td>{x.cliente || "—"}</td>
                         <td><Chip tom={x.curva === "A" ? "marca" : "neutro"}>{x.curva}</Chip></td>
@@ -74,6 +72,7 @@ export default function Carteira() {
                   </tbody>
                 </table>
               </div>
+              <Paginacao pag={pagCli} rotulo="clientes" />
             </Card>
           )}
 
@@ -84,12 +83,13 @@ export default function Carteira() {
                   <thead><tr><th>Cliente</th><th>Contrato</th><th>Periodicidade</th><th>Vence em</th></tr></thead>
                   <tbody>
                     {d.contratosVencendo.length === 0 && <tr><td colSpan={4} className="suave">Nenhum contrato vencendo no período.</td></tr>}
-                    {d.contratosVencendo.map((x) => (
+                    {pagCon.itens.map((x) => (
                       <tr key={x.id}><td>{x.cliente || "—"}</td><td className="tnum">{x.numero || "—"}</td><td className="peq">{x.periodicidade}</td><td className="tnum">{dataCurta(x.dataFim)}</td></tr>
                     ))}
                   </tbody>
                 </table>
               </div>
+              <Paginacao pag={pagCon} rotulo="contratos" />
             </Card>
           )}
 
@@ -100,12 +100,13 @@ export default function Carteira() {
                 <table>
                   <thead><tr><th>Cliente</th><th>Periodicidade</th><th>Última execução</th><th>Próxima prevista</th><th /></tr></thead>
                   <tbody>
-                    {d.recorrencias.lista.map((x) => (
+                    {pagRec.itens.map((x) => (
                       <tr key={x.id}><td>{x.cliente || "—"}</td><td className="peq">{x.periodicidade}</td><td className="tnum peq">{x.ultima ? dataCurta(x.ultima) : "—"}</td><td className="tnum">{dataCurta(x.proxima)}</td><td>{x.atrasada ? <Chip tom="ruim">Atrasada</Chip> : <Chip>Próxima</Chip>}</td></tr>
                     ))}
                   </tbody>
                 </table>
               </div>
+              <Paginacao pag={pagRec} rotulo="recorrências" />
             </Card>
           )}
         </>

@@ -11,7 +11,7 @@ import { configCompleta } from "../lib/calculos.js";
 
 const Ctx = createContext(null);
 
-const VAZIO = { equipe: [], config: [], ocorrencias: [], avaliacoes: [], feedbacks: [], estrategias: [], funcoes: [], pdi: [], treinamentos: [], reunioes: [], decisoes: [], objetivos: [], acoes: [], nps: [] };
+const VAZIO = { equipe: [], config: [], ocorrencias: [], avaliacoes: [], feedbacks: [], estrategias: [], funcoes: [], pdi: [], treinamentos: [], reunioes: [], decisoes: [], objetivos: [], acoes: [], nps: [], destaque: [], apresentacoes: [] };
 
 export function BaseProvider({ children }) {
   const [dados, setDados] = useState(VAZIO);

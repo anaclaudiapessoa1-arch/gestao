@@ -2,7 +2,7 @@
 // a escolha e a data de revisão. Na data, comparar o esperado com o que houve.
 import { useState } from "react";
 import { useBase } from "../hooks/base.jsx";
-import { Card, Chip, Cabecalho, Modal } from "../components/ui.jsx";
+import { Card, Chip, Cabecalho, Modal, Abas, Paginacao, usePaginacao } from "../components/ui.jsx";
 import { Orientacao } from "../components/Orientacao.jsx";
 import { hojeBR, dataCurta } from "../lib/format.js";
 
@@ -13,6 +13,9 @@ export default function Decisoes() {
   const hoje = hojeBR();
   const lista = [...dados.decisoes].sort((a, b) => String(b.data).localeCompare(String(a.data)));
   const aRevisar = lista.filter((d) => d.revisao && d.revisao <= hoje && !d.revisada);
+  const [aba, setAba] = useState("abertas");
+  const grupos = { abertas: lista.filter((d) => !d.revisada), revisar: aRevisar, revisadas: lista.filter((d) => d.revisada), todas: lista };
+  const pag = usePaginacao(grupos[aba], 6, aba);
 
   return (
     <>
@@ -21,9 +24,11 @@ export default function Decisoes() {
       </Cabecalho>
       <Orientacao tela="decisoes" />
       {aRevisar.length > 0 && <div className="aviso alerta">{aRevisar.length} decisão(ões) chegaram na data de revisão.</div>}
+      {lista.length > 0 && <Abas valor={aba} aoMudar={setAba} abas={[["abertas", "Em aberto", grupos.abertas.length], ["revisar", "Para revisar", aRevisar.length], ["revisadas", "Revisadas", grupos.revisadas.length], ["todas", "Todas", lista.length]]} />}
+      {lista.length > 0 && pag.n === 0 && <div className="vazio">Nada nesta lista.</div>}
       {lista.length === 0 && <Card><p className="suave" style={{ margin: 0 }}>Nenhuma decisão registrada. Use para escolhas que mudam o resultado do setor — e volte nelas na data marcada.</p></Card>}
       <div className="grade" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))" }}>
-        {lista.map((d) => {
+        {pag.itens.map((d) => {
           const vencida = d.revisao && d.revisao <= hoje && !d.revisada;
           return (
             <Card key={d.id} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -46,6 +51,7 @@ export default function Decisoes() {
           );
         })}
       </div>
+      <Paginacao pag={pag} rotulo="decisões" />
       {editando && <Editor inicial={editando} aoFechar={() => setEditando(null)} />}
       {revisando && <Revisao d={revisando} aoFechar={() => setRevisando(null)} />}
     </>

@@ -2,7 +2,8 @@
 // participou e nota do teste; e o efeito no indicador (antes × depois).
 import { useState } from "react";
 import { useBase, useCRM } from "../hooks/base.jsx";
-import { Card, Chip, Cabecalho } from "../components/ui.jsx";
+import { Card, Chip, Cabecalho, Abas } from "../components/ui.jsx";
+import { Estudio } from "../components/Estudio.jsx";
 import { Orientacao } from "../components/Orientacao.jsx";
 import { Slides } from "../components/Slides.jsx";
 import { npsCRM, licitacoesCRM } from "../services/crm.js";
@@ -53,6 +54,21 @@ function eficacia(trilha, aplicacao, { resumo, dados }) {
 }
 
 export default function Treinamentos() {
+  const [aba, setAba] = useState("apresentacoes");
+  return (
+    <>
+      <Abas valor={aba} aoMudar={setAba} abas={[["apresentacoes", "Apresentações de treinamento"], ["trilhas", "Trilhas do comercial"]]} />
+      {aba === "trilhas" ? <Trilhas /> : (
+        <>
+          <Cabecalho sobre="Treinamentos" titulo="Apresentações de treinamento" sub="Integração de novos colaboradores pronta e um modelo para criar treinamentos novos no estilo MinasLab." />
+          <Estudio categoria="treinamento" />
+        </>
+      )}
+    </>
+  );
+}
+
+function Trilhas() {
   const { resumo, equipe, dados } = useBase();
   const nps = useCRM("nps", npsCRM);
   const lic = useCRM("licitacoes", licitacoesCRM);

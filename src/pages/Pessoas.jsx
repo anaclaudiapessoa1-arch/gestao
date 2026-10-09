@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useBase } from "../hooks/base.jsx";
-import { Card, Cabecalho, Pontos, GraficoMeses, iniciais, Chip } from "../components/ui.jsx";
+import { Card, Cabecalho, Pontos, GraficoMeses, iniciais, Chip, Abas, Paginacao, usePaginacao } from "../components/ui.jsx";
 import { SeletorMes } from "../components/Layout.jsx";
 import { navegar } from "../lib/rota.js";
 import { pct, mesLongo, mesNome, mesCurto, dataCurta, hojeBR, brl } from "../lib/format.js";
@@ -29,6 +29,9 @@ export default function Pessoas({ param }) {
   const [prazo, setPrazo] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
+  const [aba, setAba] = useState("resultado");
+  const fbs = membro ? dados.feedbacks.filter((f) => f.pessoaId === membro.id).sort((a, b) => String(b.data).localeCompare(String(a.data))) : [];
+  const pagFb = usePaginacao(fbs, 5, membro?.id);
 
   if (!membro) {
     return (
@@ -45,7 +48,6 @@ export default function Pessoas({ param }) {
   const nOc = ocorrenciasDe(membro.id).length;
   const lista = pontos(resumo, membro, mes, nOc);
   const rot = roteiroFeedback(lista, membro);
-  const fbs = dados.feedbacks.filter((f) => f.pessoaId === membro.id).sort((a, b) => String(b.data).localeCompare(String(a.data)));
   const ultimo = fbs[0];
 
   const salvarFb = async () => {
@@ -83,7 +85,9 @@ export default function Pessoas({ param }) {
         </div>
       </Card>
 
-      <div className="grade grade-2">
+      <Abas valor={aba} aoMudar={setAba} abas={[["resultado", "Resultado do mês", lista.length || ""], ["feedback", "Feedback 1:1"], ["historico", "Histórico de conversas", fbs.length], ["desenvolvimento", "Desenvolvimento e PDI"]]} />
+
+      {aba === "resultado" && <div className="grade grade-2">
         <Card>
           <h3>Pontos a melhorar e destaques</h3>
           <div style={{ marginTop: 6 }}><Pontos lista={lista} /></div>
@@ -93,9 +97,9 @@ export default function Pessoas({ param }) {
           <div className="suave peq" style={{ marginTop: 4 }}>{metas.propostas ? `Linha tracejada: meta de ${metas.propostas} por mês` : "Sem meta definida"}</div>
           <GraficoMeses serie={serie(resumo, membro, mes, 9)} mesDestaque={mes} meta={metas.propostas} rotuloMes={mesCurto} />
         </Card>
-      </div>
+      </div>}
 
-      <div className="grade grade-2">
+      {aba === "feedback" && <div className="grade grade-2">
         <Card>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "baseline" }}>
             <h3>Roteiro do feedback de {mesNome(mes)}</h3>
@@ -130,10 +134,15 @@ export default function Pessoas({ param }) {
             {erro && <div className="aviso ruim">{erro}</div>}
             <div><button type="button" className="btn" disabled={salvando} onClick={salvarFb}>{salvando ? "Salvando…" : "Salvar feedback"}</button></div>
           </div>
-          <div style={{ marginTop: 20, fontWeight: 600 }}>Histórico</div>
+          {fbs.length > 0 && <button type="button" className="btn claro mini" style={{ marginTop: 16 }} onClick={() => setAba("historico")}>Ver as {fbs.length} conversas anteriores</button>}
+        </Card>
+      </div>}
+
+      {aba === "historico" && <Card>
+          <h3>Conversas com {membro.nome}</h3>
           {fbs.length === 0 ? (
             <div className="vazio peq">Nenhuma conversa registrada ainda.</div>
-          ) : fbs.map((f) => (
+          ) : pagFb.itens.map((f) => (
             <div key={f.id} style={{ borderTop: "1px solid var(--linha-fraca)", paddingTop: 10, marginTop: 10 }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                 <span className="suave peq">{dataCurta(f.data)}</span>
@@ -143,9 +152,9 @@ export default function Pessoas({ param }) {
               {f.combinados && <div className="peq" style={{ marginTop: 4, color: "var(--tinta)" }}><b>Combinado:</b> {f.combinados}{f.prazo ? ` · até ${dataCurta(f.prazo)}` : ""}</div>}
             </div>
           ))}
-        </Card>
-      </div>
-      <Desenvolvimento membro={membro} />
+          <Paginacao pag={pagFb} rotulo="conversas" />
+        </Card>}
+      {aba === "desenvolvimento" && <Desenvolvimento membro={membro} />}
     </>
   );
 }

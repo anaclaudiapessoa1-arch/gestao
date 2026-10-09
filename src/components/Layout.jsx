@@ -5,7 +5,7 @@ import { useBase } from "../hooks/base.jsx";
 import { mesAtual, mesCurto } from "../lib/format.js";
 import {
   IcGrafico, IcLupa, IcBussola, IcFunil, IcPessoas, IcMedalha, IcAviso, IcAlvo, IcEngrenagem,
-  IcCarteira, IcEstrela, IcMartelo, IcApresentacao, IcLivro, IcMenu, IcBalanca, IcPasta,
+  IcCarteira, IcEstrela, IcMartelo, IcApresentacao, IcLivro, IcMenu, IcBalanca, IcPasta, IcTrofeu,
 } from "./icones.jsx";
 
 // O menu do sistema inteiro, nos cinco blocos da especificação.
@@ -19,6 +19,7 @@ export const MENU = [
   { grupo: "Pessoas", itens: [
     { id: "pessoas", nome: "Pessoas e feedback", Ic: IcPessoas },
     { id: "avaliacao", nome: "Avaliação e bônus", Ic: IcMedalha },
+    { id: "destaque", nome: "Destaque do mês", Ic: IcTrofeu },
     { id: "ocorrencias", nome: "Ocorrências", Ic: IcAviso },
   ] },
   { grupo: "Clientes", itens: [
@@ -33,7 +34,7 @@ export const MENU = [
     { id: "equipe", nome: "Equipe e metas", Ic: IcEngrenagem },
   ] },
   { grupo: "Desenvolvimento", itens: [
-    { id: "reunioes", nome: "Reuniões prontas", Ic: IcApresentacao },
+    { id: "reunioes", nome: "Reuniões e apresentações", Ic: IcApresentacao },
     { id: "treinamentos", nome: "Treinamentos", Ic: IcLivro },
   ] },
 ];

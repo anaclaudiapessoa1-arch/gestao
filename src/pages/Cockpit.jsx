@@ -1,7 +1,7 @@
 // Cockpit do dia: vamos bater a meta? onde está o problema? o que fazer hoje?
 import { useState } from "react";
 import { useBase, useCRM } from "../hooks/base.jsx";
-import { Card, Chip, Kpi, Cabecalho } from "../components/ui.jsx";
+import { Card, Chip, Kpi, Cabecalho, Paginacao, usePaginacao } from "../components/ui.jsx";
 import { Orientacao } from "../components/Orientacao.jsx";
 import { cockpitCRM, carteiraCRM, npsCRM } from "../services/crm.js";
 import { navegar } from "../lib/rota.js";
@@ -59,7 +59,9 @@ export default function Cockpit() {
   if (revisar.length) add("neutro", `${revisar.length} decisão(ões) com revisão marcada`, "Compare o que esperava com o que aconteceu.", "decisoes");
 
   // Onde agir: maior valor esperado (valor × chance).
-  const ondeAgir = [...abertas].sort((x, y) => y.valor * y.chance - x.valor * x.chance).slice(0, 8);
+  const ondeAgir = [...abertas].sort((x, y) => y.valor * y.chance - x.valor * x.chance).slice(0, 20);
+  const pagAl = usePaginacao(alertas, 5);
+  const pagAg = usePaginacao(ondeAgir, 5);
   const ritmo = Math.round(t.enviadas / Math.max(fracao, 0.01));
   const anterior = totaisMes(resumo, somarMeses(mes, -1));
 
@@ -100,13 +102,14 @@ export default function Cockpit() {
       <div className="grade grade-2" style={{ alignItems: "start" }}>
         <Card>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}><h2>Alertas</h2><span className="suave peq">{alertas.length} aberto(s)</span></div>
-          {alertas.length === 0 ? <div className="vazio">Nenhum alerta. Bom dia para prospectar.</div> : alertas.map((x, i) => (
+          {alertas.length === 0 ? <div className="vazio">Nenhum alerta. Bom dia para prospectar.</div> : pagAl.itens.map((x, i) => (
             <div className="ponto" key={i}>
               <span className={`bolinha ${x.tom}`} />
               <div style={{ flex: 1 }}><div style={{ fontWeight: 600 }}>{x.titulo}</div><div className="suave peq" style={{ marginTop: 2 }}>{x.texto}</div></div>
               <button type="button" className="btn claro mini" onClick={() => navegar(x.tela)}>Ver</button>
             </div>
           ))}
+          <Paginacao pag={pagAl} rotulo="alertas" />
         </Card>
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           <AcoesDoDia sugestoes={alertas.slice(0, 5).map((x) => x.titulo)} />
@@ -117,7 +120,7 @@ export default function Cockpit() {
                 <table>
                   <thead><tr><th>Cliente</th><th>Responsável</th><th>Valor</th><th>Idade</th><th>Chance</th></tr></thead>
                   <tbody>
-                    {ondeAgir.map((p) => (
+                    {pagAg.itens.map((p) => (
                       <tr key={p.id}>
                         <td>{p.cliente || "—"}<div className="suave peq">{p.numero}</div></td>
                         <td className="peq">{nomeCRM(p.responsavelId)}</td>
@@ -130,6 +133,7 @@ export default function Cockpit() {
                 </table>
               </div>
             )}
+            <Paginacao pag={pagAg} rotulo="propostas" />
           </Card>
         </div>
       </div>

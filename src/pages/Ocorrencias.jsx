@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useBase } from "../hooks/base.jsx";
-import { Card, Chip, Cabecalho } from "../components/ui.jsx";
+import { Card, Chip, Cabecalho, Paginacao, usePaginacao } from "../components/ui.jsx";
 import { SeletorMes } from "../components/Layout.jsx";
 import { Orientacao } from "../components/Orientacao.jsx";
 import { mesLongo, mesNome, hojeBR, dataCurta, mesDeData } from "../lib/format.js";
@@ -17,6 +17,7 @@ export default function Ocorrencias() {
 
   const nome = (id) => (id === "equipe" ? "Equipe (coletiva)" : equipe.find((m) => m.id === id)?.nome || "Pessoa removida");
   const doMes = dados.ocorrencias.filter((o) => o.mes === mes).sort((a, b) => String(b.data).localeCompare(String(a.data)));
+  const pag = usePaginacao(doMes, 8, mes);
   const porTipo = TIPOS_OCORRENCIA.map((t) => ({ t, n: doMes.filter((o) => o.tipo === t).length })).filter((x) => x.n);
 
   const registrar = async () => {
@@ -83,7 +84,7 @@ export default function Ocorrencias() {
             <div className="tabela-caixa">
               <table>
                 <tbody>
-                  {doMes.map((o) => (
+                  {pag.itens.map((o) => (
                     <tr key={o.id}>
                       <td style={{ width: 90 }} className="tnum suave">{dataCurta(o.data)}</td>
                       <td><div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}><b style={{ fontWeight: 600 }}>{nome(o.pessoaId)}</b><Chip tom="alerta">{o.tipo}</Chip></div><div className="suave peq" style={{ marginTop: 2 }}>{o.texto}</div></td>
@@ -94,6 +95,7 @@ export default function Ocorrencias() {
               </table>
             </div>
           )}
+          <Paginacao pag={pag} rotulo="ocorrências" />
         </Card>
       </div>
     </>

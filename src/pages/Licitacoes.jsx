@@ -1,6 +1,6 @@
 // Licitações: em andamento, prazos, taxa de vitória e motivos de perda (CRM).
 import { useBase, useCRM } from "../hooks/base.jsx";
-import { Card, Chip, Kpi, Cabecalho } from "../components/ui.jsx";
+import { Card, Chip, Kpi, Cabecalho, Paginacao, usePaginacao } from "../components/ui.jsx";
 import { Orientacao } from "../components/Orientacao.jsx";
 import { licitacoesCRM } from "../services/crm.js";
 import { brl, pct, dataCurta } from "../lib/format.js";
@@ -19,9 +19,13 @@ export default function Licitacoes() {
   const andamento = lics.filter((x) => ANDAMENTO.includes(st(x)) || !["GANHA", "PERDIDA", "CANCELADA"].includes(st(x)));
   const taxa = ganhas.length + perdidas.length ? (ganhas.length / (ganhas.length + perdidas.length)) * 100 : null;
   const hoje = new Date().toISOString().slice(0, 10);
-  const prazos = (l.dados?.prazos || []).filter((p) => String(p.prazo).slice(0, 10) >= hoje).slice(0, 20);
+  const prazos = (l.dados?.prazos || []).filter((p) => String(p.prazo).slice(0, 10) >= hoje);
   const motivos = perdidas.map((x) => x.motivo_perda).filter(Boolean);
   const numero = (id) => lics.find((x) => x.id === id);
+  const ordenadas = [...lics].sort((a, b) => String(b.data_sessao || "").localeCompare(String(a.data_sessao || "")));
+  const pagLic = usePaginacao(ordenadas, 10);
+  const pagPrazo = usePaginacao(prazos, 6);
+  const pagMot = usePaginacao(motivos, 6);
 
   return (
     <>
@@ -44,17 +48,19 @@ export default function Licitacoes() {
               <div className="card-cab"><h2>Próximos prazos</h2></div>
               {prazos.length === 0 ? <div className="vazio" style={{ padding: "0 20px 20px" }}>Nenhum prazo futuro registrado no CRM.</div> : (
                 <div className="tabela-caixa"><table><tbody>
-                  {prazos.map((p) => (
+                  {pagPrazo.itens.map((p) => (
                     <tr key={p.id}><td className="tnum" style={{ width: 100 }}>{dataCurta(p.prazo)}</td><td><b style={{ fontWeight: 600 }}>{p.titulo || rotulo(p.tipo)}</b><div className="suave peq">{numero(p.licitacao_id)?.orgao} · {numero(p.licitacao_id)?.numero}</div></td></tr>
                   ))}
                 </tbody></table></div>
               )}
+              <Paginacao pag={pagPrazo} rotulo="prazos" />
             </Card>
             <Card>
               <h2>Por que perdemos</h2>
               {motivos.length === 0 ? <div className="vazio">Nenhum motivo de perda registrado. Registre no CRM a cada resultado: é o que melhora a próxima disputa.</div> : (
-                <ul style={{ margin: "10px 0 0", paddingLeft: 18 }}>{motivos.map((m, i) => <li key={i} className="peq" style={{ marginTop: 4 }}>{m}</li>)}</ul>
+                <ul style={{ margin: "10px 0 0", paddingLeft: 18 }}>{pagMot.itens.map((m, i) => <li key={i} className="peq" style={{ marginTop: 4 }}>{m}</li>)}</ul>
               )}
+              <Paginacao pag={pagMot} rotulo="motivos" />
             </Card>
           </div>
           <Card semPad>
@@ -63,7 +69,7 @@ export default function Licitacoes() {
               <table>
                 <thead><tr><th>Órgão</th><th>Objeto</th><th>Sessão</th><th>Estimado</th><th>Nossa proposta</th><th>Responsável</th><th>Situação</th></tr></thead>
                 <tbody>
-                  {[...lics].sort((a, b) => String(b.data_sessao || "").localeCompare(String(a.data_sessao || ""))).map((x) => (
+                  {pagLic.itens.map((x) => (
                     <tr key={x.id}>
                       <td>{x.orgao || "—"}<div className="suave peq">{x.numero} · {x.modalidade}</div></td>
                       <td className="peq" style={{ maxWidth: 320 }}>{x.objeto}</td>
@@ -77,6 +83,7 @@ export default function Licitacoes() {
                 </tbody>
               </table>
             </div>
+            <Paginacao pag={pagLic} rotulo="licitações" />
           </Card>
         </>
       )}

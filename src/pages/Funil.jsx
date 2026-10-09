@@ -2,13 +2,14 @@
 // e a idade das propostas em aberto (com a chance real de cada faixa).
 import { useState } from "react";
 import { useBase, useCRM } from "../hooks/base.jsx";
-import { Card, Chip, Kpi, Cabecalho } from "../components/ui.jsx";
+import { Card, Chip, Kpi, Cabecalho, Abas, Paginacao, usePaginacao } from "../components/ui.jsx";
 import { Orientacao } from "../components/Orientacao.jsx";
 import { funilCRM, cockpitCRM } from "../services/crm.js";
 import { brl, pct, mesCurto } from "../lib/format.js";
 
 export default function Funil() {
   const [meses, setMeses] = useState(6);
+  const [aba, setAba] = useState("funil");
   const f = useCRM(`funil-${meses}`, () => funilCRM(meses));
   const ck = useCRM("cockpit", cockpitCRM);
   const { nomeCRM } = useBase();
@@ -31,7 +32,8 @@ export default function Funil() {
     const xs = abertas.filter((a) => a.idade >= fx.de && (fx.ate == null || a.idade < fx.ate));
     return { ...fx, n: xs.length, valor: xs.reduce((s, a) => s + a.valor, 0) };
   });
-  const paradas = abertas.filter((a) => a.idade >= 15).slice(0, 30);
+  const paradas = abertas.filter((a) => a.idade >= 15);
+  const pag = usePaginacao(paradas, 10);
 
   return (
     <>
@@ -44,7 +46,9 @@ export default function Funil() {
       {f.erro && <div className="aviso ruim">{f.erro}</div>}
       {f.carregando && <div className="carregando">Lendo o funil no CRM…</div>}
 
-      {d && (
+      <Abas valor={aba} aoMudar={setAba} abas={[["funil", "Etapas do funil"], ["idade", "Idade das propostas"], ["paradas", "Paradas há 15+ dias", paradas.length || ""]]} />
+
+      {aba === "funil" && d && (
         <>
           <div className="grade grade-2" style={{ alignItems: "start" }}>
             <Card>
@@ -87,7 +91,7 @@ export default function Funil() {
         </>
       )}
 
-      <Card semPad>
+      {aba === "idade" && <Card semPad>
         <div className="card-cab"><h2>Propostas em aberto pela idade</h2><span className="suave peq">Chance calculada pelo histórico dos últimos 12 meses</span></div>
         {ck.carregando ? <div className="vazio" style={{ padding: "0 20px 20px" }}>Carregando…</div> : (
           <div className="tabela-caixa">
@@ -107,16 +111,17 @@ export default function Funil() {
             </table>
           </div>
         )}
-      </Card>
+      </Card>}
 
-      {paradas.length > 0 && (
+      {aba === "paradas" && paradas.length === 0 && <div className="vazio">{ck.carregando ? "Carregando…" : "Nenhuma proposta parada há 15 dias ou mais."}</div>}
+      {aba === "paradas" && paradas.length > 0 && (
         <Card semPad>
           <div className="card-cab"><h2>Paradas há 15 dias ou mais</h2><span className="suave peq">maiores valores primeiro</span></div>
           <div className="tabela-caixa">
             <table>
               <thead><tr><th>Cliente</th><th>Responsável</th><th>Valor</th><th>Enviada</th><th>Última interação</th><th>Chance</th></tr></thead>
               <tbody>
-                {paradas.map((p) => (
+                {pag.itens.map((p) => (
                   <tr key={p.id}>
                     <td>{p.cliente || "—"}<div className="suave peq">{p.numero}</div></td>
                     <td className="peq">{nomeCRM(p.responsavelId)}</td>
@@ -129,6 +134,7 @@ export default function Funil() {
               </tbody>
             </table>
           </div>
+          <Paginacao pag={pag} rotulo="propostas" />
         </Card>
       )}
     </>

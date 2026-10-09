@@ -3,7 +3,8 @@
 // slide da reunião seguinte do mesmo tipo.
 import { useState } from "react";
 import { useBase, useCRM } from "../hooks/base.jsx";
-import { Card, Cabecalho, Chip } from "../components/ui.jsx";
+import { Card, Cabecalho, Chip, Abas } from "../components/ui.jsx";
+import { Estudio } from "../components/Estudio.jsx";
 import { SeletorMes } from "../components/Layout.jsx";
 import { Orientacao } from "../components/Orientacao.jsx";
 import { Slides, BarrasSlide } from "../components/Slides.jsx";
@@ -27,6 +28,19 @@ function segundaDaSemana(iso) {
 const trimestreDe = (mes) => { const [a, m] = mes.split("-").map(Number); return `${a}-T${Math.ceil(m / 3)}`; };
 
 export default function Reunioes() {
+  const [aba, setAba] = useState("geral");
+  return (
+    <>
+      <Cabecalho sobre="Reuniões e apresentações" titulo={aba === "geral" ? "Reunião mensal e apresentações" : "Rituais do comercial"} sub={aba === "geral" ? "Modelos no estilo MinasLab: os números do CRM, o ranking e o destaque entram sozinhos. Você completa o que mudou e apresenta." : "Montadas com os números do período, com roteiro de fala e ata."}>
+        {aba === "rituais" && <SeletorMes />}
+      </Cabecalho>
+      <Abas valor={aba} aoMudar={setAba} abas={[["geral", "Reunião mensal geral e outras"], ["rituais", "Rituais do comercial"]]} />
+      {aba === "geral" ? <Estudio categoria="reuniao" /> : <Rituais />}
+    </>
+  );
+}
+
+function Rituais() {
   const base = useBase();
   const { equipe, mes, dados } = base;
   const [tipo, setTipo] = useState("rapida");
@@ -47,10 +61,7 @@ export default function Reunioes() {
 
   return (
     <>
-      <Cabecalho sobre="Reuniões prontas" titulo={titulo} sub="Revise, apresente e marque na ata o que foi decidido.">
-        {tipo !== "rapida" && <SeletorMes />}
-      </Cabecalho>
-      <Orientacao tela="reunioes" />
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}><h2>{titulo}</h2><Orientacao tela="reunioes" /></div>
       <div className="pilulas" role="tablist">
         {TIPOS.map((t) => <button key={t.id} type="button" role="tab" aria-selected={tipo === t.id} className={`pilula${tipo === t.id ? " ativa" : ""}`} onClick={() => setTipo(t.id)}>{t.nome} · {t.dur}</button>)}
       </div>

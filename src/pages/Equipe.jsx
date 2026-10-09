@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useBase } from "../hooks/base.jsx";
-import { Card, Chip, Cabecalho, Modal, iniciais } from "../components/ui.jsx";
+import { Card, Chip, Cabecalho, Modal, iniciais, Abas } from "../components/ui.jsx";
 import { getSessao } from "../lib/sessao.js";
 import { mesAtual, mesesAte, somarMeses, numero, brl, hojeBR, dataCurta } from "../lib/format.js";
 import { Orientacao } from "../components/Orientacao.jsx";
@@ -17,6 +17,7 @@ export default function Equipe() {
   const saiuDoRH = (m) => m.rhPessoaId && elenco.length > 0 && !ativosRH.has(m.rhPessoaId);
   const [msg, setMsg] = useState("");
   const inativos = dados.equipe.filter((m) => m.ativo === false);
+  const [aba, setAba] = useState("ativos");
 
   // Quem teve propostas no CRM nos últimos 3 meses e ainda não está na equipe.
   const vinculados = new Set(dados.equipe.map((m) => m.crmProfileId).filter(Boolean));
@@ -66,7 +67,9 @@ export default function Equipe() {
       )}
       {msg && <div className="aviso marca">{msg}</div>}
 
-      <Card semPad>
+      <Abas valor={aba} aoMudar={setAba} abas={[["ativos", "Equipe ativa", equipe.length], ["desligados", "Desligados", inativos.length], ["regras", "Meta do setor e regras"]]} />
+
+      {aba === "ativos" && <Card semPad>
         <div className="tabela-caixa">
           <table>
             <thead><tr><th>Pessoa</th><th>Vínculos</th><th>Propostas/mês</th><th>Aprovação mín.</th><th>Ligações/dia</th><th /></tr></thead>
@@ -85,8 +88,9 @@ export default function Equipe() {
             </tbody>
           </table>
         </div>
-      </Card>
-      {inativos.length > 0 && (
+      </Card>}
+      {aba === "desligados" && inativos.length === 0 && <div className="vazio">Ninguém desligado.</div>}
+      {aba === "desligados" && inativos.length > 0 && (
         <Card semPad>
           <div className="card-cab"><h2>Desligados e fora da equipe</h2><span className="suave peq">O histórico (avaliações, feedbacks, ocorrências) continua guardado.</span></div>
           <div className="tabela-caixa">
@@ -106,7 +110,7 @@ export default function Equipe() {
       )}
       {desligando && <Desligar membro={desligando} aoFechar={() => setDesligando(null)} />}
 
-      <Regras config={config} />
+      {aba === "regras" && <Regras config={config} />}
       {editando && <EditorPessoa inicial={editando} aoFechar={() => setEditando(null)} />}
     </>
   );

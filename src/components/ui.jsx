@@ -1,5 +1,56 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { clsx } from "../lib/clsx.js";
+
+/**
+ * Paginação de listas. `reset` volta para a página 1 quando um filtro muda.
+ *   const pag = usePaginacao(lista, 10, filtro);  pag.itens.map(...)  <Paginacao pag={pag} />
+ */
+export function usePaginacao(lista, porPagina = 10, reset) {
+  const [pagina, setPagina] = useState(1);
+  useEffect(() => setPagina(1), [reset]);
+  const n = lista?.length || 0;
+  const total = Math.max(1, Math.ceil(n / porPagina));
+  const p = Math.min(pagina, total);
+  return { itens: (lista || []).slice((p - 1) * porPagina, p * porPagina), pagina: p, total, n, porPagina, ir: setPagina };
+}
+
+export function Paginacao({ pag, rotulo = "itens" }) {
+  if (!pag || pag.total <= 1) return null;
+  const { pagina, total, n, porPagina, ir } = pag;
+  // Números visíveis: 1, a atual e vizinhas, a última; "…" no meio.
+  const nums = [];
+  for (let i = 1; i <= total; i++) {
+    if (i === 1 || i === total || Math.abs(i - pagina) <= 1) nums.push(i);
+    else if (nums.at(-1) !== "…") nums.push("…");
+  }
+  const de = (pagina - 1) * porPagina + 1;
+  const ate = Math.min(n, pagina * porPagina);
+  return (
+    <nav className="paginacao" aria-label="Paginação">
+      <span className="suave peq tnum">{de}–{ate} de {n} {rotulo}</span>
+      <div className="paginacao-botoes">
+        <button type="button" className="pag-btn" disabled={pagina === 1} onClick={() => ir(pagina - 1)} aria-label="Página anterior">‹</button>
+        {nums.map((x, i) => x === "…"
+          ? <span key={`r${i}`} className="suave peq">…</span>
+          : <button key={x} type="button" className={clsx("pag-btn", x === pagina && "ativa")} aria-current={x === pagina ? "page" : undefined} onClick={() => ir(x)}>{x}</button>)}
+        <button type="button" className="pag-btn" disabled={pagina === total} onClick={() => ir(pagina + 1)} aria-label="Próxima página">›</button>
+      </div>
+    </nav>
+  );
+}
+
+/** Abas para quebrar telas longas em partes. abas: [[id, rótulo, contador?]] */
+export function Abas({ abas, valor, aoMudar }) {
+  return (
+    <div className="abas" role="tablist">
+      {abas.filter(Boolean).map(([id, nome, cont]) => (
+        <button key={id} type="button" role="tab" aria-selected={valor === id} className={clsx("aba", valor === id && "ativa")} onClick={() => aoMudar(id)}>
+          {nome}{cont != null && cont !== "" && <span className="aba-cont tnum">{cont}</span>}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export function Card({ className, semPad, children, ...r }) {
   return <section className={clsx("card", semPad && "sem-pad", className)} {...r}>{children}</section>;

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useBase } from "../hooks/base.jsx";
-import { Card, Chip, Cabecalho, Modal } from "../components/ui.jsx";
+import { Card, Chip, Cabecalho, Modal, Abas, Paginacao, usePaginacao } from "../components/ui.jsx";
 import { dataCurta, hojeBR, mesAtual, numero } from "../lib/format.js";
 import { Orientacao } from "../components/Orientacao.jsx";
 
@@ -22,8 +22,12 @@ const SUGESTOES = [
 export default function Estrategias() {
   const { dados, gravar, remover } = useBase();
   const [editando, setEditando] = useState(null);
-  const lista = [...dados.estrategias].sort((a, b) => STATUS.findIndex((s) => s.id === a.status) - STATUS.findIndex((s) => s.id === b.status) || String(a.prazo || "9").localeCompare(String(b.prazo || "9")));
-  const titulos = new Set(lista.map((e) => e.titulo));
+  const [aba, setAba] = useState("plano");
+  const [filtro, setFiltro] = useState("abertas");
+  const todas = [...dados.estrategias].sort((a, b) => STATUS.findIndex((s) => s.id === a.status) - STATUS.findIndex((s) => s.id === b.status) || String(a.prazo || "9").localeCompare(String(b.prazo || "9")));
+  const lista = todas.filter((e) => filtro === "todas" || (filtro === "abertas" ? e.status !== "feito" : e.status === "feito"));
+  const pag = usePaginacao(lista, 6, filtro);
+  const titulos = new Set(todas.map((e) => e.titulo));
   const faltam = SUGESTOES.filter((s) => !titulos.has(s.titulo));
 
   const ciclar = (e) => {
@@ -37,13 +41,17 @@ export default function Estrategias() {
         <button type="button" className="btn" onClick={() => setEditando({ status: "afazer" })}>Nova ação</button>
       </Cabecalho>
       <Orientacao tela="estrategias" />
-      <Objetivos />
-      <h2 style={{ marginTop: 8 }}>Plano de ação</h2>
+      <Abas valor={aba} aoMudar={setAba} abas={[["plano", "Plano de ação", todas.filter((e) => e.status !== "feito").length], ["objetivos", "Objetivos do trimestre"], faltam.length > 0 && ["sugestoes", "Sugestões", faltam.length]]} />
+      {aba === "objetivos" && <Objetivos />}
 
-      {lista.length === 0 && <Card><p className="suave" style={{ margin: 0 }}>Nenhuma ação cadastrada. Comece pelas sugestões abaixo, tiradas dos números do CRM.</p></Card>}
+      {aba === "plano" && <>
+      <div className="pilulas">
+        {[["abertas", "Em aberto"], ["feitas", "Feitas"], ["todas", "Todas"]].map(([id, nome]) => <button key={id} type="button" className={`pilula${filtro === id ? " ativa" : ""}`} aria-pressed={filtro === id} onClick={() => setFiltro(id)}>{nome}</button>)}
+      </div>
+      {lista.length === 0 && <Card><p className="suave" style={{ margin: 0 }}>{todas.length ? "Nada nesta lista." : "Nenhuma ação cadastrada. Comece pelas sugestões, tiradas dos números do CRM."}</p></Card>}
 
       <div className="grade" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))" }}>
-        {lista.map((e) => {
+        {pag.itens.map((e) => {
           const s = STATUS.find((x) => x.id === e.status) || STATUS[0];
           const atrasada = e.prazo && e.status !== "feito" && e.prazo < hojeBR();
           return (
@@ -66,8 +74,10 @@ export default function Estrategias() {
           );
         })}
       </div>
+      <Paginacao pag={pag} rotulo="ações" />
+      </>}
 
-      {faltam.length > 0 && (
+      {aba === "sugestoes" && faltam.length > 0 && (
         <Card>
           <h2>Sugestões a partir dos dados</h2>
           {faltam.map((s) => (

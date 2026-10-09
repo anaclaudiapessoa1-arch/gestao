@@ -2,7 +2,7 @@
 // registradas no CRM com as que a gestora registra aqui.
 import { useState } from "react";
 import { useBase, useCRM } from "../hooks/base.jsx";
-import { Card, Chip, Kpi, Cabecalho } from "../components/ui.jsx";
+import { Card, Chip, Kpi, Cabecalho, Paginacao, usePaginacao } from "../components/ui.jsx";
 import { Orientacao } from "../components/Orientacao.jsx";
 import { npsCRM } from "../services/crm.js";
 import { hojeBR, dataCurta } from "../lib/format.js";
@@ -24,6 +24,7 @@ export default function Satisfacao() {
   const desde = new Date(Date.now() - 90 * 864e5).toISOString().slice(0, 10);
   const r90 = todas.filter((r) => r.data >= desde);
   const k = calcularNps(r90);
+  const pag = usePaginacao(todas, 8);
 
   const registrar = async () => {
     const nota = Number(f.nota);
@@ -63,7 +64,7 @@ export default function Satisfacao() {
             <div className="tabela-caixa">
               <table>
                 <tbody>
-                  {todas.slice(0, 100).map((r) => (
+                  {pag.itens.map((r) => (
                     <tr key={`${r.origem}-${r.id}`}>
                       <td style={{ width: 60 }}><Chip tom={r.nota >= 9 ? "ok" : r.nota <= 6 ? "ruim" : "alerta"}>{r.nota}</Chip></td>
                       <td><b style={{ fontWeight: 600 }}>{r.cliente || "—"}</b><div className="suave peq">{r.comentario}</div></td>
@@ -75,6 +76,7 @@ export default function Satisfacao() {
               </table>
             </div>
           )}
+          <Paginacao pag={pag} rotulo="respostas" />
         </Card>
       </div>
     </>

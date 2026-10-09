@@ -1,7 +1,9 @@
 // ============================================================================
 // ml-comercial — a porta de dados do Comercial MinasLab (repositório gestao).
 //
-// SÓ LEITURA do CRM. Devolve números já somados (propostas por mês e por
+// SÓ LEITURA do CRM. A única escrita é a da votação do Destaque do Mês
+// (coleção rh_comercial_pesquisas em ml_registros), descrita mais abaixo.
+// Devolve números já somados (propostas por mês e por
 // responsável) e a lista de propostas sem responsável. Nunca escreve no CRM,
 // nunca devolve dado pessoal de cliente além do nome da empresa.
 //
@@ -18,6 +20,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { agregarPropostas, mesBR, probabilidadesPorIdade, chanceDaIdade, carteiraClientes } from "./agregar.mjs";
+import { PERGUNTAS_EQUIPE, PERGUNTAS_GESTAO, validarVoto, aplicarVoto, resultado, gerarCodigos, normalizarCodigo, codigoValido } from "./pesquisa.mjs";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -112,6 +115,174 @@ function somarMeses(mes: string, n: number) {
   return `${Math.floor(t / 12)}-${String((t % 12) + 1).padStart(2, "0")}`;
 }
 
+
+// ------------------------------------------------- votação do Destaque do Mês
+// Duas ações PÚBLICAS (sem crachá): votoAbrir e votoEnviar. Só funcionam com
+// o id de uma votação ABERTA e um código de uso único ainda não usado. O voto
+// é somado nos totais (pesquisa.mjs) e nada que identifique quem votou é
+// gravado. As demais ações (criar, listar, encerrar) exigem o crachá da direção.
+const COL_PESQ = "rh_comercial_pesquisas";
+const T_REG = "ml_registros";
+
+async function hmacCodigo(pesquisa: string, codigo: string) {
+  const chave = await crypto.subtle.importKey("raw", enc.encode(`pesquisa:${JWT_SECRET}`), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const sig = new Uint8Array(await crypto.subtle.sign("HMAC", chave, enc.encode(`${pesquisa}:${codigo}`)));
+  return btoa(String.fromCharCode(...sig)).replace(/=+$/, "").slice(0, 32);
+}
+
+function bytesAleatorios(n: number) {
+  const b = new Uint8Array(n);
+  crypto.getRandomValues(b);
+  return b;
+}
+function codigosNovos(n: number) {
+  let pool = bytesAleatorios(n * 12 + 64);
+  let base = 0;
+  return gerarCodigos(n, (i: number) => {
+    if (i - base >= pool.length) { base = i; pool = bytesAleatorios(256); }
+    return pool[i - base];
+  });
+}
+function embaralhar<T>(xs: T[]) {
+  const a = [...xs];
+  const r = bytesAleatorios(a.length * 4);
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = new DataView(r.buffer).getUint32((i % a.length) * 4) % (i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+async function lerPesquisa(id: string) {
+  const { data, error } = await sb.from(T_REG).select("registro,atualizado_em,apagado").eq("colecao", COL_PESQ).eq("id", id).maybeSingle();
+  if (error) throw error;
+  if (!data || data.apagado) return null;
+  return { reg: data.registro as any, versao: data.atualizado_em as string };
+}
+
+/** Grava só se ninguém gravou no meio (versão = atualizado_em lido). */
+async function gravarPesquisa(id: string, reg: any, versao: string | null) {
+  const agora = new Date().toISOString();
+  if (versao === null) {
+    const { error } = await sb.from(T_REG).insert({ colecao: COL_PESQ, id, registro: reg, apagado: false, atualizado_em: agora });
+    if (error) throw error;
+    return true;
+  }
+  const { data, error } = await sb.from(T_REG).update({ registro: reg, atualizado_em: agora }).eq("colecao", COL_PESQ).eq("id", id).eq("atualizado_em", versao).select("id");
+  if (error) throw error;
+  return (data ?? []).length === 1;
+}
+
+const espera = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function votar(action: string, body: Record<string, unknown>) {
+  const id = String(body.pesquisa ?? "").slice(0, 40);
+  const codigo = normalizarCodigo(body.codigo);
+  if (!/^p[a-z0-9]{6,30}$/.test(id) || !codigoValido(codigo)) { await espera(400); return resp({ erro: "Confira o código: são 8 letras e números." }, 400); }
+
+  for (let tentativa = 0; tentativa < 6; tentativa++) {
+    const lida = await lerPesquisa(id);
+    if (!lida || lida.reg.status !== "aberta") return resp({ erro: "Esta votação não está aberta." }, 404);
+    const { reg, versao } = lida;
+    const h = await hmacCodigo(id, codigo);
+    if (!(reg.validos || []).includes(h)) { await espera(400); return resp({ erro: "Código não encontrado. Confira as letras e os números." }, 403); }
+    if (reg.usados?.[h]) return resp({ erro: "Este código já foi usado. Cada código vale um voto." }, 409);
+
+    if (action === "votoAbrir") {
+      return resp({
+        titulo: reg.titulo, mes: reg.mes,
+        avaliados: (reg.avaliados || []).map((p: any) => ({ id: p.id, nome: p.nome })),
+        lideres: (reg.lideres || []).map((p: any) => ({ id: p.id, nome: p.nome })),
+        perguntasEquipe: PERGUNTAS_EQUIPE, perguntasGestao: PERGUNTAS_GESTAO,
+      });
+    }
+
+    const v = validarVoto(reg, body.voto);
+    if (v.erro) return resp({ erro: v.erro }, 400);
+    const novo = {
+      ...reg,
+      somas: aplicarVoto(reg.somas, v.limpo, () => bytesAleatorios(1)[0] / 256),
+      usados: { ...(reg.usados || {}), [h]: 1 },
+      totalVotos: (reg.totalVotos || 0) + 1,
+    };
+    if (await gravarPesquisa(id, novo, versao)) return resp({ ok: true });
+    await espera(80 + Math.floor(bytesAleatorios(1)[0] * 2)); // alguém votou no mesmo instante: lê de novo
+  }
+  return resp({ erro: "Muita gente votando agora. Tente enviar de novo." }, 503);
+}
+
+function semSegredos(reg: any) {
+  return {
+    id: reg.id, titulo: reg.titulo, mes: reg.mes, status: reg.status, minimo: reg.minimo,
+    criadaEm: reg.criadaEm, encerradaEm: reg.encerradaEm || "", criadaPor: reg.criadaPor || "",
+    avaliados: reg.avaliados || [], lideres: reg.lideres || [],
+    codigos: reg.codigos || [], totalVotos: reg.totalVotos || 0,
+    resultado: reg.status === "encerrada" ? resultado(reg) : null,
+  };
+}
+
+function listaPessoas(x: unknown, max: number) {
+  if (!Array.isArray(x)) return [];
+  const vistos = new Set<string>();
+  return x.slice(0, max).map((p: any) => ({ id: String(p?.id ?? "").slice(0, 60), nome: String(p?.nome ?? "").replace(/\s+/g, " ").trim().slice(0, 80) }))
+    .filter((p) => p.id && p.nome && !vistos.has(p.id) && vistos.add(p.id));
+}
+
+async function pesquisaDirecao(action: string, body: Record<string, unknown>, usuario: string) {
+  switch (action) {
+    case "pesquisaListar": {
+      const { data, error } = await sb.from(T_REG).select("registro").eq("colecao", COL_PESQ).eq("apagado", false);
+      if (error) throw error;
+      const itens = (data ?? []).map((d: any) => semSegredos(d.registro)).sort((a, b) => String(b.criadaEm).localeCompare(String(a.criadaEm)));
+      return resp({ itens });
+    }
+    case "pesquisaCriar": {
+      const titulo = String(body.titulo ?? "").trim().slice(0, 120);
+      const mes = String(body.mes ?? "");
+      const avaliados = listaPessoas(body.avaliados, 80);
+      const lideres = listaPessoas(body.lideres, 6);
+      const n = Math.min(Math.max(Number(body.codigos ?? 0) | 0, 1), 200);
+      const minimo = Math.min(Math.max(Number(body.minimo ?? 3) | 0, 2), 10);
+      if (!titulo || !/^\d{4}-\d{2}$/.test(mes)) return resp({ erro: "Informe o título e o mês." }, 400);
+      if (!avaliados.length && !lideres.length) return resp({ erro: "Escolha quem será avaliado." }, 400);
+      const id = "p" + [...bytesAleatorios(12)].map((b) => "abcdefghijkmnpqrstuvwxyz23456789"[b % 32]).join("");
+      const codigos = codigosNovos(n);
+      const validos = embaralhar(await Promise.all(codigos.map((c) => hmacCodigo(id, c))));
+      const reg = { id, titulo, mes, status: "aberta", minimo, avaliados, lideres, codigos, validos, usados: {}, totalVotos: 0, somas: {}, criadaEm: new Date().toISOString(), criadaPor: usuario };
+      await gravarPesquisa(id, reg, null);
+      return resp({ pesquisa: semSegredos(reg) });
+    }
+    case "pesquisaCodigos":
+    case "pesquisaStatus": {
+      const id = String(body.id ?? "");
+      for (let t = 0; t < 5; t++) {
+        const lida = await lerPesquisa(id);
+        if (!lida) return resp({ erro: "Votação não encontrada." }, 404);
+        let reg = lida.reg;
+        if (action === "pesquisaCodigos") {
+          const n = Math.min(Math.max(Number(body.n ?? 0) | 0, 1), 100);
+          const novos = codigosNovos(n).filter((c) => !(reg.codigos || []).includes(c));
+          const hs = await Promise.all(novos.map((c) => hmacCodigo(id, c)));
+          reg = { ...reg, codigos: [...(reg.codigos || []), ...novos], validos: embaralhar([...(reg.validos || []), ...hs]) };
+        } else {
+          const status = body.status === "aberta" ? "aberta" : "encerrada";
+          reg = { ...reg, status, encerradaEm: status === "encerrada" ? new Date().toISOString() : "" };
+        }
+        if (await gravarPesquisa(id, reg, lida.versao)) return resp({ pesquisa: semSegredos(reg) });
+        await espera(100);
+      }
+      return resp({ erro: "Não consegui gravar agora. Tente de novo." }, 503);
+    }
+    case "pesquisaApagar": {
+      const id = String(body.id ?? "");
+      const { error } = await sb.from(T_REG).update({ apagado: true, atualizado_em: new Date().toISOString() }).eq("colecao", COL_PESQ).eq("id", id);
+      if (error) throw error;
+      return resp({ ok: true });
+    }
+  }
+  return null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return resp({ erro: "Use POST." }, 405);
@@ -124,6 +295,9 @@ Deno.serve(async (req) => {
   }
   const action = String(body.action ?? "");
   if (action === "ping") return resp({ ok: true, agora: new Date().toISOString() });
+  if (action === "votoAbrir" || action === "votoEnviar") {
+    try { return await votar(action, body); } catch (e) { console.error("ml-comercial voto", e); return resp({ erro: "O servidor falhou agora. Tente de novo em instantes." }, 500); }
+  }
 
   const m = String(req.headers.get("authorization") ?? "").match(/^Bearer\s+(.+)$/i);
   const cracha = m ? await verificarJwt(m[1]) : null;
@@ -133,6 +307,10 @@ Deno.serve(async (req) => {
   if (cracha.papel !== "direcao") return resp({ erro: "O Comercial é restrito à direção.", semPermissao: true }, 403);
 
   try {
+    if (action.startsWith("pesquisa")) {
+      const r = await pesquisaDirecao(action, body, usuario);
+      if (r) return r;
+    }
     switch (action) {
       // Propostas somadas por mês e por responsável + nomes dos usuários do CRM.
       case "resumo": {

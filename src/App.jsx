@@ -20,13 +20,15 @@ import Reunioes from "./pages/Reunioes.jsx";
 import Treinamentos from "./pages/Treinamentos.jsx";
 import Decisoes from "./pages/Decisoes.jsx";
 import Funcoes from "./pages/Funcoes.jsx";
+import Votar from "./pages/Votar.jsx";
+import Destaque from "./pages/Destaque.jsx";
 
 const TELAS = {
   cockpit: Cockpit, visao: VisaoMes, funil: Funil, dado: QualidadeDado,
   pessoas: Pessoas, avaliacao: Avaliacao, ocorrencias: Ocorrencias,
   carteira: Carteira, satisfacao: Satisfacao, licitacoes: Licitacoes,
   estrategias: Estrategias, decisoes: Decisoes, funcoes: Funcoes, equipe: Equipe,
-  reunioes: Reunioes, treinamentos: Treinamentos,
+  reunioes: Reunioes, treinamentos: Treinamentos, destaque: Destaque,
 };
 
 function Telas() {
@@ -50,7 +52,10 @@ function Telas() {
 
 export default function App() {
   const [sessao, setSessao] = useState(() => getSessao());
+  const { tela, param } = useRota();
   useEffect(() => aoMudarSessao(() => setSessao(getSessao())), []);
+  // Votação do Destaque do Mês: pública, sem login e sem ler sessão alguma.
+  if (tela === "votar") return <Votar param={param} />;
   if (!sessao) return <Login />;
   return (
     <BaseProvider key={sessao.usuario}>

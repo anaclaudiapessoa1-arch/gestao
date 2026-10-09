@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from "react";
 import { useBase } from "../hooks/base.jsx";
-import { Card, Chip, Kpi, Cabecalho } from "../components/ui.jsx";
+import { Card, Chip, Kpi, Cabecalho, Paginacao, usePaginacao } from "../components/ui.jsx";
 import { SeletorMes } from "../components/Layout.jsx";
 import { Orientacao } from "../components/Orientacao.jsx";
 import { propostasSemResponsavel } from "../services/crm.js";
@@ -30,6 +30,7 @@ export default function QualidadeDado() {
   const t = totaisMes(resumo, mes);
   const historico = mesesAte(mes, 6).map((m) => ({ m, ...totaisMes(resumo, m) }));
   const meta = 5;
+  const pag = usePaginacao(lista || [], 10, mes);
 
   return (
     <>
@@ -55,7 +56,7 @@ export default function QualidadeDado() {
                 <table>
                   <thead><tr><th>Data</th><th>Proposta</th><th>Cliente</th><th>Valor</th><th>Situação</th></tr></thead>
                   <tbody>
-                    {lista.map((p) => (
+                    {pag.itens.map((p) => (
                       <tr key={p.id}>
                         <td className="tnum">{dataCurta(p.data)}</td>
                         <td className="tnum">{p.numero || "—"}</td>
@@ -66,6 +67,7 @@ export default function QualidadeDado() {
                     ))}
                   </tbody>
                 </table>
+                <Paginacao pag={pag} rotulo="propostas" />
               </div>
             )}
         </Card>

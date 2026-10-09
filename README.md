@@ -49,6 +49,17 @@ Usa o segredo `ML_JWT_SECRET`, que já existe no projeto (é o mesmo do painel).
 - **Pessoas:** Pessoas e feedback (roteiro de 1:1, PDI, estágio e estilo de liderança), Avaliação e bônus, Ocorrências.
 - **Clientes:** Carteira (curva ABC, clientes em risco, contratos e recorrências), Satisfação (NPS), Licitações.
 - **Gestão:** Estratégias e objetivos do trimestre, Decisões (diário com revisão), Funções e cargos, Equipe e metas (inclui desligamento).
-- **Desenvolvimento:** Reuniões prontas (apresentação + roteiro + ata, impressão em PDF), Treinamentos (9 trilhas, registro e eficácia).
+- **Pessoas:** também **Destaque do mês** (para toda a MinasLab): votação anônima por link, avaliação da liderança, ranking pelo modelo híbrido e como a equipe avalia a gestão.
+- **Desenvolvimento:** Reuniões e apresentações (estúdio com modelos no estilo MinasLab: Reunião mensal de resultados com CRM, ranking e destaque automáticos; rituais do comercial com roteiro e ata), Treinamentos (Integração de novos colaboradores, modelo de novo treinamento, 9 trilhas, registro e eficácia).
 
-Função `ml-comercial` (só leitura): `resumo`, `semResponsavel`, `cockpit`, `funil`, `carteira`, `licitacoes`, `nps`.
+Listas longas têm paginação e telas longas foram divididas em abas.
+
+Função `ml-comercial`: leitura do CRM (`resumo`, `semResponsavel`, `cockpit`, `funil`, `carteira`, `licitacoes`, `nps`) e a votação do Destaque do Mês.
+
+### Votação anônima (Destaque do Mês)
+
+- Ações **públicas** (sem login): `votoAbrir` e `votoEnviar`. Só funcionam com o id de uma votação aberta e um código de uso único.
+- Ações da direção (crachá): `pesquisaListar`, `pesquisaCriar`, `pesquisaCodigos`, `pesquisaStatus`, `pesquisaApagar`.
+- Nada que identifique quem votou é gravado: o voto é somado direto nos totais (`pesquisa.mjs`), comentários entram em posição sorteada, e o código usado fica guardado como HMAC com segredo do servidor. Médias só aparecem depois de encerrar e para quem tem o mínimo de votos (padrão 3).
+- Registro em `ml_registros`, coleção `rh_comercial_pesquisas` (direção). Gravação com controle de concorrência pela coluna `atualizado_em`.
+- Página pública: `#/votar/<id>` (o app não pede login nessa rota).
