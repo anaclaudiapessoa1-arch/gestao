@@ -23,13 +23,14 @@ async function publico(action, corpo) {
   if (!resp.ok) {
     const e = new Error(dados?.erro || mensagemDoStatus(resp.status));
     e.status = resp.status;
+    e.precisaCodigo = !!dados?.precisaCodigo;
     throw e;
   }
   return dados;
 }
 
 export const abrirVoto = (pesquisa, codigo) => publico("votoAbrir", { pesquisa, codigo });
-export const enviarVoto = (pesquisa, codigo, voto) => publico("votoEnviar", { pesquisa, codigo, voto });
+export const enviarVoto = (pesquisa, codigo, voto, eu = "") => publico("votoEnviar", { pesquisa, codigo, voto, eu });
 
 /** Endereço do link de votação (funciona em qualquer hospedagem: rota no hash). */
 export function linkVotacao(id, codigo = "") {

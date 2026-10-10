@@ -175,29 +175,48 @@ async function gravarPesquisa(id: string, reg: any, versao: string | null) {
 
 const espera = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+// Dois modos:
+//  - "codigo": cada voto usa um código de uso único (sorteado em tirinhas);
+//  - "aberto": link sem código; a pessoa diz quem é (só para travar o voto
+//    repetido e tirar o próprio nome). O servidor guarda apenas um HMAC de
+//    "esta pessoa já votou", separado das somas: dá para saber QUE votou,
+//    nunca O QUE votou.
 async function votar(action: string, body: Record<string, unknown>) {
   const id = String(body.pesquisa ?? "").slice(0, 40);
-  const codigo = normalizarCodigo(body.codigo);
-  if (!/^p[a-z0-9]{6,30}$/.test(id) || !codigoValido(codigo)) { await espera(400); return resp({ erro: "Confira o código: são 8 letras e números." }, 400); }
+  if (!/^p[a-z0-9]{6,30}$/.test(id)) { await espera(400); return resp({ erro: "Link de votação inválido." }, 400); }
 
   for (let tentativa = 0; tentativa < 6; tentativa++) {
     const lida = await lerPesquisa(id);
     if (!lida || lida.reg.status !== "aberta") return resp({ erro: "Esta votação não está aberta." }, 404);
     const { reg, versao } = lida;
-    const h = await hmacCodigo(id, codigo);
-    if (!(reg.validos || []).includes(h)) { await espera(400); return resp({ erro: "Código não encontrado. Confira as letras e os números." }, 403); }
-    if (reg.usados?.[h]) return resp({ erro: "Este código já foi usado. Cada código vale um voto." }, 409);
+    const aberto = reg.modo === "aberto";
+    let h = "";
+    let eu = "";
+    if (aberto) {
+      if (action === "votoEnviar") {
+        eu = String(body.eu ?? "");
+        if (!(reg.avaliados || []).some((p: any) => p.id === eu)) return resp({ erro: "Escolha o seu nome na lista." }, 400);
+        h = await hmacCodigo(id, `pessoa:${eu}`);
+        if (reg.usados?.[h]) return resp({ erro: "Você já votou nesta votação. Se não foi você, fale com a gestão." }, 409);
+      }
+    } else {
+      const codigo = normalizarCodigo(body.codigo);
+      if (!codigoValido(codigo)) { await espera(400); return resp({ erro: "Esta votação pede o código de 8 letras e números.", precisaCodigo: true }, 400); }
+      h = await hmacCodigo(id, codigo);
+      if (!(reg.validos || []).includes(h)) { await espera(400); return resp({ erro: "Código não encontrado. Confira as letras e os números.", precisaCodigo: true }, 403); }
+      if (reg.usados?.[h]) return resp({ erro: "Este código já foi usado. Cada código vale um voto." }, 409);
+    }
 
     if (action === "votoAbrir") {
       return resp({
-        titulo: reg.titulo, mes: reg.mes,
+        titulo: reg.titulo, mes: reg.mes, modo: aberto ? "aberto" : "codigo",
         avaliados: (reg.avaliados || []).map((p: any) => ({ id: p.id, nome: p.nome })),
         lideres: (reg.lideres || []).map((p: any) => ({ id: p.id, nome: p.nome })),
         perguntasEquipe: PERGUNTAS_EQUIPE, perguntasGestao: PERGUNTAS_GESTAO,
       });
     }
 
-    const v = validarVoto(reg, body.voto);
+    const v = validarVoto(reg, body.voto, eu);
     if (v.erro) return resp({ erro: v.erro }, 400);
     const novo = {
       ...reg,
@@ -213,7 +232,7 @@ async function votar(action: string, body: Record<string, unknown>) {
 
 function semSegredos(reg: any) {
   return {
-    id: reg.id, titulo: reg.titulo, mes: reg.mes, status: reg.status, minimo: reg.minimo,
+    id: reg.id, titulo: reg.titulo, mes: reg.mes, status: reg.status, minimo: reg.minimo, modo: reg.modo === "aberto" ? "aberto" : "codigo",
     criadaEm: reg.criadaEm, encerradaEm: reg.encerradaEm || "", criadaPor: reg.criadaPor || "",
     avaliados: reg.avaliados || [], lideres: reg.lideres || [],
     codigos: reg.codigos || [], totalVotos: reg.totalVotos || 0,
@@ -241,14 +260,15 @@ async function pesquisaDirecao(action: string, body: Record<string, unknown>, us
       const mes = String(body.mes ?? "");
       const avaliados = listaPessoas(body.avaliados, 80);
       const lideres = listaPessoas(body.lideres, 6);
-      const n = Math.min(Math.max(Number(body.codigos ?? 0) | 0, 1), 200);
+      const modo = body.modo === "aberto" ? "aberto" : "codigo";
+      const n = modo === "aberto" ? 0 : Math.min(Math.max(Number(body.codigos ?? 0) | 0, 1), 200);
       const minimo = Math.min(Math.max(Number(body.minimo ?? 3) | 0, 2), 10);
       if (!titulo || !/^\d{4}-\d{2}$/.test(mes)) return resp({ erro: "Informe o título e o mês." }, 400);
       if (!avaliados.length && !lideres.length) return resp({ erro: "Escolha quem será avaliado." }, 400);
       const id = "p" + [...bytesAleatorios(12)].map((b) => "abcdefghijkmnpqrstuvwxyz23456789"[b % 32]).join("");
-      const codigos = codigosNovos(n);
+      const codigos = n ? codigosNovos(n) : [];
       const validos = embaralhar(await Promise.all(codigos.map((c) => hmacCodigo(id, c))));
-      const reg = { id, titulo, mes, status: "aberta", minimo, avaliados, lideres, codigos, validos, usados: {}, totalVotos: 0, somas: {}, criadaEm: new Date().toISOString(), criadaPor: usuario };
+      const reg = { id, titulo, mes, modo, status: "aberta", minimo, avaliados, lideres, codigos, validos, usados: {}, totalVotos: 0, somas: {}, criadaEm: new Date().toISOString(), criadaPor: usuario };
       await gravarPesquisa(id, reg, null);
       return resp({ pesquisa: semSegredos(reg) });
     }

@@ -58,7 +58,7 @@ Função `ml-comercial`: leitura do CRM (`resumo`, `semResponsavel`, `cockpit`, 
 
 ### Votação anônima (Destaque do Mês)
 
-- Ações **públicas** (sem login): `votoAbrir` e `votoEnviar`. Só funcionam com o id de uma votação aberta e um código de uso único.
+- Ações **públicas** (sem login): `votoAbrir` e `votoEnviar`, só em votação aberta. Dois modos: **link aberto** (a pessoa escolhe o próprio nome, que sai da lista; o servidor guarda só um HMAC de "já votou", separado das notas) ou **código** de uso único sorteado.
 - Ações da direção (crachá): `pesquisaListar`, `pesquisaCriar`, `pesquisaCodigos`, `pesquisaStatus`, `pesquisaApagar`.
 - Nada que identifique quem votou é gravado: o voto é somado direto nos totais (`pesquisa.mjs`), comentários entram em posição sorteada, e o código usado fica guardado como HMAC com segredo do servidor. Médias só aparecem depois de encerrar e para quem tem o mínimo de votos (padrão 3).
 - Registro em `ml_registros`, coleção `rh_comercial_pesquisas` (direção). Gravação com controle de concorrência pela coluna `atualizado_em`.

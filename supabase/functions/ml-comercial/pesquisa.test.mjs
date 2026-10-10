@@ -44,3 +44,9 @@ test("códigos: 8 caracteres do alfabeto, sem repetição", () => {
   assert.equal(normalizarCodigo(" ab cd-ef 23 "), "ABCDEF23");
   assert.equal(codigoValido("ABCDEF2O"), false);
 });
+
+test("votação sem código: ninguém vota em si mesmo", () => {
+  assert.ok(validarVoto(reg, { equipe: { a: [9, 9, 9, 9, 9] } }, "a").erro);
+  assert.ok(validarVoto(reg, { equipe: { b: [9, 9, 9, 9, 9] }, comentarios: { a: "eu" } }, "a").erro);
+  assert.equal(validarVoto(reg, { equipe: { b: [9, 9, 9, 9, 9] } }, "a").erro, undefined);
+});

@@ -34,9 +34,11 @@ const texto = (v, max) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim()
  * pessoa) simplesmente não manda nota para ela.
  * voto = { equipe: {pessoaId: [5 notas]}, comentarios: {pessoaId: "..."},
  *          gestao: {liderId: [5 notas]}, sugestao: "..." }
+ * `eu` (votação sem código): quem está votando; não pode se avaliar.
  */
-export function validarVoto(reg, voto) {
+export function validarVoto(reg, voto, eu = "") {
   const v = voto && typeof voto === "object" ? voto : {};
+  if (eu && (v.equipe?.[eu] || v.comentarios?.[eu])) return { erro: "Você não pode votar em si mesmo." };
   const avaliados = new Set((reg.avaliados || []).map((p) => p.id));
   const lideres = new Set((reg.lideres || []).map((p) => p.id));
   const limpo = { equipe: {}, comentarios: {}, gestao: {}, sugestao: "" };

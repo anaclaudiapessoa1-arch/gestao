@@ -69,7 +69,7 @@ function Votacoes() {
   return (
     <>
       <div className="aviso marca peq" style={{ lineHeight: 1.6 }}>
-        <b>Como fica anônimo:</b> cada pessoa vota com um código sorteado (imprima as tirinhas, dobre e deixe cada um pegar a sua). O servidor só soma as notas: não guarda nome, login, horário nem a resposta de cada um, e nem você consegue ver qual código foi usado. Médias e comentários só aparecem depois de encerrar e para quem recebeu pelo menos o mínimo de votos.
+        <b>Como fica anônimo:</b> o servidor só soma as notas; não guarda a resposta de cada pessoa. No <b>link aberto</b>, a pessoa escolhe o próprio nome só para sair da lista e votar uma vez: fica registrado que ela votou, nunca o que votou. Com <b>código</b> (mais sigiloso), nem isso: cada um sorteia uma tirinha. Médias e comentários só aparecem depois de encerrar e para quem recebeu pelo menos o mínimo de votos.
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
         <h2>Votações</h2>
@@ -89,11 +89,11 @@ function Votacoes() {
             <Chip tom={v.status === "aberta" ? "ok" : "neutro"}>{v.status === "aberta" ? "Aberta" : "Encerrada"}</Chip>
           </div>
           <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-            <div><div className="kpi-rot">Votos</div><div className="kpi-val tnum" style={{ fontSize: 26 }}>{v.totalVotos} <span className="suave peq">de {v.codigos.length} códigos</span></div></div>
-            <div style={{ flex: "1 1 220px", alignSelf: "center" }}><div className="barra"><div style={{ width: `${v.codigos.length ? (v.totalVotos / v.codigos.length) * 100 : 0}%`, background: "var(--marca)" }} /></div></div>
+            <div><div className="kpi-rot">Votos</div><div className="kpi-val tnum" style={{ fontSize: 26 }}>{v.totalVotos} <span className="suave peq">de {v.modo === "aberto" ? v.avaliados.length : v.codigos.length} {v.modo === "aberto" ? "pessoas" : "códigos"}</span></div></div>
+            <div style={{ flex: "1 1 220px", alignSelf: "center" }}><div className="barra"><div style={{ width: `${Math.min(100, (v.totalVotos / Math.max(1, v.modo === "aberto" ? v.avaliados.length : v.codigos.length)) * 100)}%`, background: "var(--marca)" }} /></div></div>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {v.status === "aberta" && <button type="button" className="btn claro mini" onClick={() => setCodigos(v)}>Link e códigos</button>}
+            {v.status === "aberta" && <button type="button" className="btn claro mini" onClick={() => setCodigos(v)}>{v.modo === "aberto" ? "Link da votação" : "Link e códigos"}</button>}
             {v.status === "encerrada" && <button type="button" className="btn mini" onClick={() => setVendo(v)}>Ver resultado</button>}
             {v.status === "aberta"
               ? <button type="button" className="btn claro mini" onClick={() => window.confirm("Encerrar a votação? Depois de encerrada, os códigos que sobraram não votam mais e o resultado aparece.") && acao(async () => p.trocar(await mudarStatus(v.id, "encerrada")))}>Encerrar e ver resultado</button>
@@ -120,6 +120,7 @@ function NovaVotacao({ aoFechar, aoCriar }) {
   const [lideres, setLideres] = useState(() => new Set(pessoas.filter(ehEu).map((p) => p.id)));
   const [extraLider, setExtraLider] = useState(pessoas.some(ehEu) ? "" : eu);
   const [nCod, setNCod] = useState(String(pessoas.length + 2));
+  const [modo, setModo] = useState("aberto");
   const [minimo, setMinimo] = useState("3");
   const [erro, setErro] = useState("");
   const [salvando, setSalvando] = useState(false);
@@ -131,7 +132,7 @@ function NovaVotacao({ aoFechar, aoCriar }) {
     const av = pessoas.filter((p) => avaliados.has(p.id)).map((p) => ({ id: p.id, nome: p.nome }));
     if (!av.length && !lid.length) { setErro("Escolha quem será avaliado."); return; }
     setSalvando(true);
-    try { aoCriar(await criarPesquisa({ titulo, mes, avaliados: av, lideres: lid, codigos: Number(nCod) || av.length, minimo: Number(minimo) || 3 })); } catch (e) { setErro(e.message); } finally { setSalvando(false); }
+    try { aoCriar(await criarPesquisa({ titulo, mes, avaliados: av, lideres: lid, modo, codigos: Number(nCod) || av.length, minimo: Number(minimo) || 3 })); } catch (e) { setErro(e.message); } finally { setSalvando(false); }
   };
 
   return (
@@ -154,13 +155,14 @@ function NovaVotacao({ aoFechar, aoCriar }) {
           <div className="campo" style={{ marginTop: 8 }}><label htmlFor="nv-lid">Outros nomes da liderança (separe por vírgula)</label><input id="nv-lid" className="entrada" value={extraLider} onChange={(e) => setExtraLider(e.target.value)} placeholder="Ex.: nome da gestora, nome da coordenadora" /></div>
         </div>
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-          <div className="campo"><label htmlFor="nv-cod">Quantos códigos</label><input id="nv-cod" type="number" min="1" max="200" className="entrada num" value={nCod} onChange={(e) => setNCod(e.target.value)} /><span className="suave peq">1 por pessoa que vota, e uma folga</span></div>
+          <div className="campo"><label htmlFor="nv-modo">Como votam</label><select id="nv-modo" className="entrada" value={modo} onChange={(e) => setModo(e.target.value)}><option value="aberto">Link aberto (escolhem o próprio nome)</option><option value="codigo">Com código sorteado (mais sigiloso)</option></select></div>
+          {modo === "codigo" && <div className="campo"><label htmlFor="nv-cod">Quantos códigos</label><input id="nv-cod" type="number" min="1" max="200" className="entrada num" value={nCod} onChange={(e) => setNCod(e.target.value)} /><span className="suave peq">1 por pessoa que vota, e uma folga</span></div>}
           <div className="campo"><label htmlFor="nv-min">Mínimo de votos para mostrar média</label><input id="nv-min" type="number" min="2" max="10" className="entrada num" value={minimo} onChange={(e) => setMinimo(e.target.value)} /></div>
         </div>
         {erro && <div className="aviso ruim">{erro}</div>}
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
           <button type="button" className="btn claro" onClick={aoFechar}>Cancelar</button>
-          <button type="button" className="btn" disabled={salvando} onClick={criar}>{salvando ? "Criando…" : "Criar e gerar códigos"}</button>
+          <button type="button" className="btn" disabled={salvando} onClick={criar}>{salvando ? "Criando…" : modo === "codigo" ? "Criar e gerar códigos" : "Criar votação"}</button>
         </div>
       </div>
     </Modal>
@@ -173,7 +175,17 @@ function LinkCodigos({ v, aoFechar, aoMudar }) {
   const [erro, setErro] = useState("");
   const copiar = async (t, qual) => { try { await navigator.clipboard.writeText(t); setCopiado(qual); } catch { setCopiado(""); } };
   return (
-    <Modal titulo="Link e códigos" aoFechar={aoFechar}>
+    <Modal titulo={v.modo === "aberto" ? "Link da votação" : "Link e códigos"} aoFechar={aoFechar}>
+      {v.modo === "aberto" ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div className="campo">
+            <label htmlFor="lk">Link para todos (mande no grupo da equipe)</label>
+            <div style={{ display: "flex", gap: 8 }}><input id="lk" className="entrada" readOnly value={link} onFocus={(e) => e.target.select()} /><button type="button" className="btn claro" onClick={() => copiar(link, "link")}>{copiado === "link" ? "Copiado" : "Copiar"}</button></div>
+            <span className="suave peq">Cada pessoa abre o link, escolhe o próprio nome (que sai da lista) e vota uma vez só.</span>
+          </div>
+          <div className="suave peq">{v.totalVotos} de {v.avaliados.length} pessoas já votaram.</div>
+        </div>
+      ) : (
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <div className="campo">
           <label htmlFor="lk">Link único para todos (mande no grupo da equipe)</label>
@@ -200,6 +212,7 @@ function LinkCodigos({ v, aoFechar, aoMudar }) {
           </div>
         </div>
       </div>
+      )}
     </Modal>
   );
 }
