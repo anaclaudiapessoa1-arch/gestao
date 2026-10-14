@@ -15,7 +15,7 @@ const nota1 = (x) => (x == null ? "—" : Number(x).toFixed(1).replace(".", ",")
 
 export function usePesquisas() {
   const { setCrmCache } = useBase();
-  const p = useCRM("pesquisas", listarPesquisas);
+  const p = useCRM("pesquisas", listarPesquisas, { semCRM: true });
   const trocar = (pesq) => setCrmCache((c) => {
     const lista = (c.pesquisas?.dados || []).filter((x) => x.id !== pesq.id);
     return { ...c, pesquisas: { dados: [pesq, ...lista].sort((a, b) => String(b.criadaEm).localeCompare(String(a.criadaEm))), em: Date.now() } };
@@ -96,8 +96,8 @@ function Votacoes() {
             {v.status === "aberta" && <button type="button" className="btn claro mini" onClick={() => setCodigos(v)}>{v.modo === "aberto" ? "Link da votação" : "Link e códigos"}</button>}
             {v.status === "encerrada" && <button type="button" className="btn mini" onClick={() => setVendo(v)}>Ver resultado</button>}
             {v.status === "aberta"
-              ? <button type="button" className="btn claro mini" onClick={() => window.confirm("Encerrar a votação? Depois de encerrada, os códigos que sobraram não votam mais e o resultado aparece.") && acao(async () => p.trocar(await mudarStatus(v.id, "encerrada")))}>Encerrar e ver resultado</button>
-              : <button type="button" className="btn claro mini" onClick={() => acao(async () => p.trocar(await mudarStatus(v.id, "aberta")))}>Reabrir</button>}
+              ? <button type="button" className="btn claro mini" onClick={() => window.confirm("Encerrar a votação? É definitivo: ninguém mais vota e o resultado aparece. Para proteger o anonimato, uma votação encerrada não pode ser reaberta.") && acao(async () => p.trocar(await mudarStatus(v.id, "encerrada")))}>Encerrar e ver resultado</button>
+              : null}
             <button type="button" className="btn perigo mini" onClick={() => window.confirm("Apagar esta votação e o resultado?") && acao(async () => { await apagarPesquisa(v.id); p.tirar(v.id); })}>Apagar</button>
           </div>
         </Card>

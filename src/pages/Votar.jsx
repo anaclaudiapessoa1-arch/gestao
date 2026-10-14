@@ -9,9 +9,6 @@ import { abrirVoto, enviarVoto } from "../services/pesquisa.js";
 import { mesLongo } from "../lib/format.js";
 
 const LIMITE = 500;
-const chaveLocal = (pid) => `ml_votou_${pid}`;
-const jaVotouAqui = (pid) => { try { return !!localStorage.getItem(chaveLocal(pid)); } catch { return false; } };
-const marcarVotou = (pid) => { try { localStorage.setItem(chaveLocal(pid), "1"); } catch { /* sem armazenamento */ } };
 
 export default function Votar({ param }) {
   const [pid, codUrl = ""] = String(param || "").split("/");
@@ -21,7 +18,6 @@ export default function Votar({ param }) {
   const [carregando, setCarregando] = useState(false);
   const [enviado, setEnviado] = useState(false);
   const [pedeCodigo, setPedeCodigo] = useState(!!codUrl);
-  const [jaVotou] = useState(() => jaVotouAqui(pid));
 
   useEffect(() => { document.title = "Votação · Destaque do Mês · MinasLab"; }, []);
 
@@ -36,7 +32,7 @@ export default function Votar({ param }) {
   };
 
   // Abre direto: votação sem código entra sem pedir nada; com código, mostra o campo.
-  useEffect(() => { if (pid && !jaVotou) abrir(null, !codUrl); /* eslint-disable-next-line */ }, []);
+  useEffect(() => { if (pid) abrir(null, !codUrl); /* eslint-disable-next-line */ }, []);
 
   return (
     <div className="votar">
@@ -45,12 +41,12 @@ export default function Votar({ param }) {
         <div className="votar-sub">Destaque do Mês · votação anônima</div>
       </header>
       <main className="votar-miolo">
-        {enviado ? <Obrigado /> : jaVotou ? <JaVotou /> : dados ? <Formulario pid={pid} codigo={codigo} dados={dados} aoEnviar={() => { marcarVotou(pid); setEnviado(true); }} /> : !pedeCodigo ? (
+        {enviado ? <Obrigado /> : dados ? <Formulario pid={pid} codigo={codigo} dados={dados} aoEnviar={() => setEnviado(true)} /> : !pedeCodigo ? (
           <div className="card votar-cartao">{erro ? <div className="aviso ruim">{erro}</div> : !pid ? <div className="aviso ruim">Link incompleto. Peça o link da votação à gestão.</div> : <div className="vazio">Abrindo a votação…</div>}</div>
         ) : (
           <form className="card votar-cartao" onSubmit={abrir}>
             <h1 style={{ fontSize: 24 }}>Sua opinião, sem seu nome</h1>
-            <p className="peq" style={{ lineHeight: 1.6 }}>Você vai avaliar os colegas e a liderança. <b>Ninguém fica sabendo o que você respondeu</b>: não tem login e o sistema não guarda as respostas uma a uma. Só as médias de cada pessoa são vistas, e apenas quando pelo menos 3 pessoas avaliaram.</p>
+            <p className="peq" style={{ lineHeight: 1.6 }}>Você vai avaliar os colegas e a liderança. <b>Ninguém fica sabendo o que você respondeu</b>: não tem login e o sistema não guarda as respostas uma a uma. Só as médias de cada pessoa são vistas, e apenas quando um número mínimo de colegas avaliou.</p>
             {!pid ? <div className="aviso ruim">Link incompleto. Peça o link da votação à gestão.</div> : (
               <>
                 <div className="campo">
@@ -69,16 +65,6 @@ export default function Votar({ param }) {
   );
 }
 
-function JaVotou() {
-  return (
-    <div className="card votar-cartao" style={{ textAlign: "center" }}>
-      <div style={{ fontSize: 44 }} aria-hidden="true">✓</div>
-      <h1 style={{ fontSize: 24 }}>Você já votou neste aparelho</h1>
-      <p className="suave">Cada pessoa vota uma vez. Obrigado por participar!</p>
-    </div>
-  );
-}
-
 function Obrigado() {
   return (
     <div className="card votar-cartao" style={{ textAlign: "center" }}>
@@ -90,18 +76,20 @@ function Obrigado() {
 }
 
 function Formulario({ pid, codigo, dados, aoEnviar }) {
-  const { lideres, perguntasEquipe, perguntasGestao } = dados;
+  const { perguntasEquipe, perguntasGestao } = dados;
   const aberto = dados.modo === "aberto";
   const [eu, setEu] = useState("");
   const avaliados = useMemo(() => dados.avaliados.filter((p) => p.id !== eu), [dados.avaliados, eu]);
+  const lideresVisiveis = useMemo(() => dados.lideres.filter((p) => p.id !== eu), [dados.lideres, eu]);
+  const votantes = dados.votantes || dados.avaliados;
   const passos = useMemo(() => [
     ...(aberto ? [{ tipo: "quem" }] : []),
     { tipo: "intro" },
     ...avaliados.map((p) => ({ tipo: "colega", p })),
-    ...lideres.map((p) => ({ tipo: "lider", p })),
+    ...lideresVisiveis.map((p) => ({ tipo: "lider", p })),
     { tipo: "sugestao" },
     { tipo: "revisar" },
-  ], [avaliados, lideres]);
+  ], [avaliados, lideresVisiveis, aberto]);
   const [i, setI] = useState(0);
   const [notas, setNotas] = useState({});      // id -> [5]
   const [pular, setPular] = useState({});      // id -> "eu" | "nao"
@@ -122,7 +110,7 @@ function Formulario({ pid, codigo, dados, aoEnviar }) {
 
   const completos = (ids) => ids.filter((k) => !pular[k] && (notas[k] || []).filter((n) => n != null).length === 5);
   const colegasOk = completos(avaliados.map((p) => p.id));
-  const lideresOk = completos(lideres.map((p) => p.id));
+  const lideresOk = completos(lideresVisiveis.map((p) => p.id));
 
   const enviar = async () => {
     setErro("");
@@ -149,7 +137,7 @@ function Formulario({ pid, codigo, dados, aoEnviar }) {
             <label htmlFor="v-eu">Seu nome</label>
             <select id="v-eu" className="entrada" value={eu} onChange={(e) => { setEu(e.target.value); setNotas({}); setPular({}); setComent({}); }}>
               <option value="">Escolha…</option>
-              {[...dados.avaliados].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")).map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
+              {[...votantes].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")).map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
             </select>
           </div>
         </>
@@ -159,7 +147,7 @@ function Formulario({ pid, codigo, dados, aoEnviar }) {
         <>
           <h1 style={{ fontSize: 22 }}>Como funciona</h1>
           <ul className="peq" style={{ lineHeight: 1.7, paddingLeft: 18, margin: 0 }}>
-            <li>Você verá <b>{avaliados.length} colega(s)</b>{lideres.length ? <> e <b>{lideres.length} pessoa(s) da liderança</b></> : null}, uma de cada vez.</li>
+            <li>Você verá <b>{avaliados.length} colega(s)</b>{lideresVisiveis.length ? <> e <b>{lideresVisiveis.length} pessoa(s) da liderança</b></> : null}, uma de cada vez.</li>
             <li>Notas de <b>0 a 10</b>: 0 = muito abaixo do esperado, 10 = excelente.</li>
             <li>{aberto ? null : <>Quando chegar no <b>seu nome</b>, toque em “Sou eu”. </>}Se <b>não conviveu</b> o suficiente com alguém, toque em “Não sei avaliar”. Isso é melhor que dar nota baixa.</li>
             <li>O comentário é opcional. Escreva sobre o trabalho, sem detalhes que mostrem quem escreveu.</li>
@@ -206,7 +194,7 @@ function Formulario({ pid, codigo, dados, aoEnviar }) {
       {passo.tipo === "revisar" && (
         <>
           <h1 style={{ fontSize: 22 }}>Tudo certo?</h1>
-          <p className="peq" style={{ margin: 0 }}>Você avaliou <b>{colegasOk.length}</b> colega(s){lideres.length ? <> e <b>{lideresOk.length}</b> da liderança</> : null}. Depois de enviar, não dá para mudar.</p>
+          <p className="peq" style={{ margin: 0 }}>Você avaliou <b>{colegasOk.length}</b> colega(s){lideresVisiveis.length ? <> e <b>{lideresOk.length}</b> da liderança</> : null}. Depois de enviar, não dá para mudar.</p>
           {colegasOk.length + lideresOk.length === 0 && <div className="aviso alerta">Você não avaliou ninguém ainda. Volte e dê as notas.</div>}
           {erro && <div className="aviso ruim">{erro}</div>}
         </>

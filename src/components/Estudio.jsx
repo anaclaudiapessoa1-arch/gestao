@@ -140,17 +140,32 @@ function Editor({ deck: inicial, aoVoltar }) {
   const visiveis = deck.slides.filter((s) => !s.oculto);
   const s = deck.slides[Math.min(sel, deck.slides.length - 1)];
 
-  // Gravação automática 1,2 s depois da última mudança.
+  // Gravação automática 1,2 s depois da última mudança. As gravações vão em
+  // fila (uma resposta antiga nunca passa por cima de uma mais nova) e o que
+  // estiver pendente é gravado na hora ao sair do editor.
+  const fila = useRef(Promise.resolve());
+  const pendente = useRef(null);
+  const salvarAgora = () => {
+    const d = pendente.current;
+    if (!d) return fila.current;
+    pendente.current = null;
+    setEstado("salvando");
+    fila.current = fila.current
+      .then(() => gravar("apresentacoes", { ...d, atualizadoEm: new Date().toISOString() }))
+      .then(() => { if (!pendente.current) setEstado("salvo"); })
+      .catch(() => setEstado("erro"));
+    return fila.current;
+  };
   useEffect(() => {
     if (primeira.current) { primeira.current = false; return; }
+    pendente.current = deck;
     setEstado("pendente");
-    const t = setTimeout(async () => {
-      setEstado("salvando");
-      try { await gravar("apresentacoes", { ...deck, atualizadoEm: new Date().toISOString() }); setEstado("salvo"); } catch { setEstado("erro"); }
-    }, 1200);
+    const t = setTimeout(salvarAgora, 1200);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deck]);
+  useEffect(() => () => { salvarAgora(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const voltar = () => { salvarAgora(); aoVoltar(); };
 
   const mudarSlide = (campos) => setDeck((d) => ({ ...d, slides: d.slides.map((x, k) => (k === sel ? { ...x, ...campos } : x)) }));
   const trocarSlides = (sl, novoSel) => { setDeck({ ...deck, slides: sl }); setSel(novoSel); };
@@ -174,7 +189,7 @@ function Editor({ deck: inicial, aoVoltar }) {
   return (
     <div className="estudio">
       <div className="estudio-barra">
-        <button type="button" className="btn claro mini" onClick={aoVoltar}>‹ Apresentações</button>
+        <button type="button" className="btn claro mini" onClick={voltar}>‹ Apresentações</button>
         <input className="entrada estudio-titulo" aria-label="Título da apresentação" value={deck.titulo} onChange={(e) => setDeck({ ...deck, titulo: e.target.value })} />
         <input type="month" className="entrada" style={{ width: 160 }} aria-label="Mês de referência" value={deck.ref} onChange={(e) => e.target.value && setDeck({ ...deck, ref: e.target.value })} />
         <span className={`peq estado-${estado}`}>{{ salvo: "✓ Salvo", pendente: "Alterações…", salvando: "Salvando…", erro: "Não salvou. Confira a conexão." }[estado]}</span>

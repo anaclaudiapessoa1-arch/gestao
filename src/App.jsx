@@ -55,7 +55,7 @@ export default function App() {
   const { tela, param } = useRota();
   useEffect(() => aoMudarSessao(() => setSessao(getSessao())), []);
   // Votação do Destaque do Mês: pública, sem login e sem ler sessão alguma.
-  if (tela === "votar") return <Votar param={param} />;
+  if (tela === "votar") return <Votar key={param} param={param} />;
   if (!sessao) return <Login />;
   return (
     <BaseProvider key={sessao.usuario}>

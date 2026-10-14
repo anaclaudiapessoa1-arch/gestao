@@ -68,3 +68,12 @@ test("carteira: curva ABC e cliente em risco", () => {
   assert.equal(b.emRisco, true);
   assert.equal(l.find((c) => c.clienteId === "a").emRisco, false);
 });
+
+test("data sem hora ou meia-noite UTC fica no próprio mês", async () => {
+  const { mesBR } = await import("./agregar.mjs");
+  assert.equal(mesBR("2026-10-01"), "2026-10");
+  assert.equal(mesBR("2026-10-01T00:00:00+00:00"), "2026-10");
+  assert.equal(mesBR("2026-10-01 00:00:00+00"), "2026-10");
+  assert.equal(mesBR("2026-10-01T02:00:00Z"), "2026-09"); // 23h de 30/09 em Brasília
+  assert.equal(mesBR("2026-10-01T03:00:00+00:00"), "2026-10");
+});

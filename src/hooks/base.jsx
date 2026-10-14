@@ -69,8 +69,11 @@ export const useBase = () => useContext(Ctx);
  * Lê uma visão do CRM sob demanda e guarda por 10 minutos.
  * `chave` identifica a leitura; `buscar` é a função do services/crm.js.
  */
-export function useCRM(chave, buscar) {
-  const { crmCache, setCrmCache, erroCRM } = useBase();
+export function useCRM(chave, buscar, { semCRM = false } = {}) {
+  const base = useBase();
+  const { crmCache, setCrmCache } = base;
+  // semCRM: leituras que não dependem do CRM (ex.: votações) não travam se o CRM falhar.
+  const erroCRM = semCRM ? "" : base.erroCRM;
   const item = crmCache[chave];
   const [erro, setErro] = useState("");
   const fresco = item && Date.now() - item.em < 10 * 60 * 1000;

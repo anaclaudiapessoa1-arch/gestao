@@ -38,7 +38,7 @@ const texto = (v, max) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim()
  */
 export function validarVoto(reg, voto, eu = "") {
   const v = voto && typeof voto === "object" ? voto : {};
-  if (eu && (v.equipe?.[eu] || v.comentarios?.[eu])) return { erro: "Você não pode votar em si mesmo." };
+  if (eu && (v.equipe?.[eu] || v.comentarios?.[eu] || v.gestao?.[eu])) return { erro: "Você não pode votar em si mesmo." };
   const avaliados = new Set((reg.avaliados || []).map((p) => p.id));
   const lideres = new Set((reg.lideres || []).map((p) => p.id));
   const limpo = { equipe: {}, comentarios: {}, gestao: {}, sugestao: "" };
@@ -50,6 +50,7 @@ export function validarVoto(reg, voto, eu = "") {
   }
   for (const [id, c] of Object.entries(v.comentarios || {})) {
     if (!avaliados.has(id)) return { erro: "Pessoa fora da lista desta votação." };
+    if (!limpo.equipe[id]) continue; // comentário só vale para quem recebeu nota
     const t = texto(c, LIMITE_COMENTARIO);
     if (t) limpo.comentarios[id] = t;
   }

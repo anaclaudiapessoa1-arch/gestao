@@ -171,9 +171,9 @@ const RENDER = {
       <div className="dk-ind-linha">
         <div className="dk-ind-mes">{rot}</div>
         <Tile v={t.enviadas} r="Propostas enviadas" escuro={escuro} />
-        <Tile v={t.aprovadas} r="Aprovadas" />
+        <Tile v={t.aprovadas} r="Aprovadas (das enviadas)" />
         <Tile v={t.recusadas} r="Recusadas" escuro={escuro} vermelho />
-        <Tile v={brl(t.valorAprovado, true)} r="Valor aprovado" valor />
+        <Tile v={brl(t.valorAprovado, true)} r="Aceito no mês (R$)" valor />
         {amostras !== "" && amostras != null && <Tile v={amostras} r="Amostras analisadas" escuro={escuro} />}
       </div>
     );

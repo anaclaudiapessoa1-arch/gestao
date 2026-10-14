@@ -12,7 +12,12 @@ const FORA = new Set(["RASCUNHO", "CANCELADA"]);
 
 export function mesBR(iso) {
   if (!iso) return null;
-  const t = Date.parse(iso);
+  const txt = String(iso);
+  // Só data (importação de planilha) ou meia-noite UTC em ponto: é uma DATA,
+  // não um instante. Sem isto, o dia 1º caía no mês anterior ao tirar 3 h.
+  const soData = txt.match(/^(\d{4})-(\d{2})-\d{2}(?:$|[T ]00:00(?::00(?:\.0+)?)?(?:Z|[+-]00(?::?00)?)?$)/);
+  if (soData) return `${soData[1]}-${soData[2]}`;
+  const t = Date.parse(txt);
   if (!isFinite(t)) return null;
   const br = new Date(t - 3 * 3600 * 1000); // Brasília: UTC-3 o ano todo desde 2019
   return `${br.getUTCFullYear()}-${String(br.getUTCMonth() + 1).padStart(2, "0")}`;

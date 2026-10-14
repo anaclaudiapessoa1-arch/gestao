@@ -153,16 +153,52 @@ function embaralhar<T>(xs: T[]) {
   return a;
 }
 
+// COFRE: somas, marcas de "já votou" e códigos válidos ficam criptografados
+// (AES-GCM, chave derivada do segredo do servidor). Assim nem quem lê o banco
+// ou a coleção pelo painel vê as notas parciais durante a votação; o
+// resultado só sai por esta função, depois de encerrar.
+let chaveCofre: CryptoKey | null = null;
+async function cofreChave() {
+  if (!chaveCofre) {
+    const h = await crypto.subtle.digest("SHA-256", enc.encode(`cofre:${JWT_SECRET}`));
+    chaveCofre = await crypto.subtle.importKey("raw", h, "AES-GCM", false, ["encrypt", "decrypt"]);
+  }
+  return chaveCofre;
+}
+const paraB64 = (u8: Uint8Array) => { let t = ""; for (let i = 0; i < u8.length; i += 8192) t += String.fromCharCode(...u8.subarray(i, i + 8192)); return btoa(t); };
+const deB64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+async function fecharCofre(seg: unknown) {
+  const iv = bytesAleatorios(12);
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await cofreChave(), enc.encode(JSON.stringify(seg))));
+  return `${paraB64(iv)}.${paraB64(ct)}`;
+}
+async function abrirCofre(reg: any) {
+  if (!reg?.cofre) return { somas: reg?.somas || {}, usados: reg?.usados || {}, validos: reg?.validos || [] };
+  const [iv, ct] = String(reg.cofre).split(".");
+  const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: deB64(iv) }, await cofreChave(), deB64(ct));
+  return JSON.parse(dec.decode(pt));
+}
+/** Registro em memória (com somas/usados/validos) → registro gravado (com cofre). */
+async function selar(reg: any) {
+  const { somas, usados, validos, ...resto } = reg;
+  return { ...resto, cofre: await fecharCofre({ somas: somas || {}, usados: usados || {}, validos: validos || [] }) };
+}
+async function abrirRegistro(gravado: any) {
+  const { cofre, ...resto } = gravado || {};
+  return { ...resto, ...(await abrirCofre(gravado)) };
+}
+
 async function lerPesquisa(id: string) {
   const { data, error } = await sb.from(T_REG).select("registro,atualizado_em,apagado").eq("colecao", COL_PESQ).eq("id", id).maybeSingle();
   if (error) throw error;
   if (!data || data.apagado) return null;
-  return { reg: data.registro as any, versao: data.atualizado_em as string };
+  return { reg: await abrirRegistro(data.registro), versao: data.atualizado_em as string };
 }
 
 /** Grava só se ninguém gravou no meio (versão = atualizado_em lido). */
-async function gravarPesquisa(id: string, reg: any, versao: string | null) {
+async function gravarPesquisa(id: string, regAberto: any, versao: string | null) {
   const agora = new Date().toISOString();
+  const reg = await selar(regAberto);
   if (versao === null) {
     const { error } = await sb.from(T_REG).insert({ colecao: COL_PESQ, id, registro: reg, apagado: false, atualizado_em: agora });
     if (error) throw error;
@@ -190,34 +226,40 @@ async function votar(action: string, body: Record<string, unknown>) {
     if (!lida || lida.reg.status !== "aberta") return resp({ erro: "Esta votação não está aberta." }, 404);
     const { reg, versao } = lida;
     const aberto = reg.modo === "aberto";
+    const votantes = [...(reg.avaliados || []), ...(reg.lideres || [])];
     let h = "";
     let eu = "";
-    if (aberto) {
-      if (action === "votoEnviar") {
-        eu = String(body.eu ?? "");
-        if (!(reg.avaliados || []).some((p: any) => p.id === eu)) return resp({ erro: "Escolha o seu nome na lista." }, 400);
-        h = await hmacCodigo(id, `pessoa:${eu}`);
-        if (reg.usados?.[h]) return resp({ erro: "Você já votou nesta votação. Se não foi você, fale com a gestão." }, 409);
-      }
-    } else {
+    if (!aberto) {
       const codigo = normalizarCodigo(body.codigo);
       if (!codigoValido(codigo)) { await espera(400); return resp({ erro: "Esta votação pede o código de 8 letras e números.", precisaCodigo: true }, 400); }
       h = await hmacCodigo(id, codigo);
       if (!(reg.validos || []).includes(h)) { await espera(400); return resp({ erro: "Código não encontrado. Confira as letras e os números.", precisaCodigo: true }, 403); }
-      if (reg.usados?.[h]) return resp({ erro: "Este código já foi usado. Cada código vale um voto." }, 409);
     }
 
+    // Abrir não diz se o código ou a pessoa já votou: a resposta é igual para
+    // todos, para ninguém usar o link para descobrir quem já votou.
     if (action === "votoAbrir") {
+      const unicos = new Map(votantes.map((p: any) => [p.id, { id: p.id, nome: p.nome }]));
       return resp({
-        titulo: reg.titulo, mes: reg.mes, modo: aberto ? "aberto" : "codigo",
+        titulo: reg.titulo, mes: reg.mes, modo: aberto ? "aberto" : "codigo", minimo: reg.minimo || 3,
         avaliados: (reg.avaliados || []).map((p: any) => ({ id: p.id, nome: p.nome })),
         lideres: (reg.lideres || []).map((p: any) => ({ id: p.id, nome: p.nome })),
+        votantes: [...unicos.values()],
         perguntasEquipe: PERGUNTAS_EQUIPE, perguntasGestao: PERGUNTAS_GESTAO,
       });
     }
 
+    if (aberto) {
+      eu = String(body.eu ?? "");
+      if (!votantes.some((p: any) => p.id === eu)) return resp({ erro: "Escolha o seu nome na lista." }, 400);
+      h = await hmacCodigo(id, `pessoa:${eu}`);
+    }
+    // A cédula é conferida ANTES de dizer se já votou: quem só quer sondar
+    // (cédula vazia) recebe sempre o mesmo erro.
     const v = validarVoto(reg, body.voto, eu);
     if (v.erro) return resp({ erro: v.erro }, 400);
+    if (reg.usados?.[h]) return resp({ erro: aberto ? "Você já votou nesta votação. Se não foi você, fale com a gestão." : "Este código já foi usado. Cada código vale um voto." }, 409);
+
     const novo = {
       ...reg,
       somas: aplicarVoto(reg.somas, v.limpo, () => bytesAleatorios(1)[0] / 256),
@@ -252,7 +294,7 @@ async function pesquisaDirecao(action: string, body: Record<string, unknown>, us
     case "pesquisaListar": {
       const { data, error } = await sb.from(T_REG).select("registro").eq("colecao", COL_PESQ).eq("apagado", false);
       if (error) throw error;
-      const itens = (data ?? []).map((d: any) => semSegredos(d.registro)).sort((a, b) => String(b.criadaEm).localeCompare(String(a.criadaEm)));
+      const itens = (await Promise.all((data ?? []).map(async (d: any) => semSegredos(d.registro?.status === "encerrada" ? await abrirRegistro(d.registro) : d.registro)))).sort((a, b) => String(b.criadaEm).localeCompare(String(a.criadaEm)));
       return resp({ itens });
     }
     case "pesquisaCriar": {
@@ -280,13 +322,17 @@ async function pesquisaDirecao(action: string, body: Record<string, unknown>, us
         if (!lida) return resp({ erro: "Votação não encontrada." }, 404);
         let reg = lida.reg;
         if (action === "pesquisaCodigos") {
+          if (reg.status !== "aberta" || reg.modo === "aberto") return resp({ erro: "Só dá para gerar códigos em votação aberta com código." }, 400);
           const n = Math.min(Math.max(Number(body.n ?? 0) | 0, 1), 100);
           const novos = codigosNovos(n).filter((c) => !(reg.codigos || []).includes(c));
           const hs = await Promise.all(novos.map((c) => hmacCodigo(id, c)));
           reg = { ...reg, codigos: [...(reg.codigos || []), ...novos], validos: embaralhar([...(reg.validos || []), ...hs]) };
         } else {
-          const status = body.status === "aberta" ? "aberta" : "encerrada";
-          reg = { ...reg, status, encerradaEm: status === "encerrada" ? new Date().toISOString() : "" };
+          // Encerrar é definitivo: reabrir permitiria comparar o resultado antes
+          // e depois de um único voto e descobrir o que aquela pessoa votou.
+          if (body.status === "aberta") return resp({ erro: "Votação encerrada não pode ser reaberta (protege o anonimato). Crie uma nova." }, 400);
+          if (reg.status === "encerrada") return resp({ pesquisa: semSegredos(reg) });
+          reg = { ...reg, status: "encerrada", encerradaEm: new Date().toISOString() };
         }
         if (await gravarPesquisa(id, reg, lida.versao)) return resp({ pesquisa: semSegredos(reg) });
         await espera(100);
@@ -313,6 +359,7 @@ Deno.serve(async (req) => {
   } catch {
     return resp({ erro: "JSON inválido." }, 400);
   }
+  if (!body || typeof body !== "object" || Array.isArray(body)) return resp({ erro: "JSON inválido." }, 400);
   const action = String(body.action ?? "");
   if (action === "ping") return resp({ ok: true, agora: new Date().toISOString() });
   if (action === "votoAbrir" || action === "votoEnviar") {
@@ -334,7 +381,7 @@ Deno.serve(async (req) => {
     switch (action) {
       // Propostas somadas por mês e por responsável + nomes dos usuários do CRM.
       case "resumo": {
-        const meses = Math.min(Math.max(Number(body.meses ?? 13), 1), 36);
+        const meses = Math.min(Math.max(Number(body.meses) || 13, 1), 36);
         const desde = somarMeses(mesAtualBR(), -(meses - 1));
         const [propostas, perfis] = await Promise.all([
           lerTudo("propostas", CAMPOS_AGREGADO),
@@ -410,7 +457,7 @@ Deno.serve(async (req) => {
 
       // Funil: leads → oportunidades → propostas → aprovadas, num período.
       case "funil": {
-        const meses = Math.min(Math.max(Number(body.meses ?? 6), 1), 24);
+        const meses = Math.min(Math.max(Number(body.meses) || 6, 1), 24);
         const desde = somarMeses(mesAtualBR(), -(meses - 1));
         const noPeriodo = (iso: string | null) => { const m = mesBR(iso); return !!m && m >= desde; };
         const [leads, opps, props] = await Promise.all([

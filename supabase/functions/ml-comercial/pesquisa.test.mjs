@@ -50,3 +50,10 @@ test("votação sem código: ninguém vota em si mesmo", () => {
   assert.ok(validarVoto(reg, { equipe: { b: [9, 9, 9, 9, 9] }, comentarios: { a: "eu" } }, "a").erro);
   assert.equal(validarVoto(reg, { equipe: { b: [9, 9, 9, 9, 9] } }, "a").erro, undefined);
 });
+
+test("liderança também não se avalia; comentário sem nota é ignorado", () => {
+  const r2 = { ...reg, lideres: [{ id: "a", nome: "A" }, { id: "g", nome: "G" }] };
+  assert.ok(validarVoto(r2, { gestao: { a: [9, 9, 9, 9, 9] } }, "a").erro);
+  const { limpo } = validarVoto(reg, { equipe: { b: [9, 9, 9, 9, 9] }, comentarios: { a: "sem nota" } });
+  assert.deepEqual(limpo.comentarios, {});
+});
