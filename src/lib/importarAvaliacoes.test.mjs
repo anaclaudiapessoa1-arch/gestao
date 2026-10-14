@@ -9,15 +9,15 @@ const elenco = [{ id: "rh1", nome: "Maria Souza Lima" }, { id: "rh2", nome: "Jo�
 test("casa nome da planilha com o RH pelo primeiro e último nome", () => {
   assert.equal(casarPessoa("MARIA LIMA", elenco).id, "rh1");
   assert.equal(casarPessoa("Pedro Alves", elenco).id, "plan_pedro-alves");
-  assert.equal(casarPessoa("Maria Capuchino", [...elenco, { id: "rh3", nome: "Maria Froes Capuchinho" }]).id, "plan_maria-capuchino");
-  assert.equal(casarPessoa("Maria Froes", [...elenco, { id: "rh3", nome: "Maria Froes Capuchinho" }]).id, "rh3");
+  assert.equal(casarPessoa("Maria Brandaozino", [...elenco, { id: "rh3", nome: "Maria Teles Brandaozinho" }]).id, "plan_maria-capuchino");
+  assert.equal(casarPessoa("Maria Teles", [...elenco, { id: "rh3", nome: "Maria Teles Brandaozinho" }]).id, "rh3");
 });
 
 test("liderança: zerada não entra, eliminatório mapeado, ano pela data", () => {
   const abas = { "Avaliação Liderança": [cabL,
     ["JULHO", 46275, "Maria Souza Lima", "x", "Ana Claudia", 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, null, null, null, "Sim"],
     ["JULHO", 46275, "João Pereira", "x", "Ana Claudia", 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, null, "Não entregou atestado dentro do prazo", null, "Não"],
-    ["SETEMBRO", null, "Maria Souza Lima", "x", "Lidyane", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null, null, null, null],
+    ["SETEMBRO", null, "Maria Souza Lima", "x", "Avaliadora", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null, null, null, null],
   ] };
   const r = importarPlanilha(abas, elenco, 2026);
   assert.equal(r.lideranca.length, 2);
