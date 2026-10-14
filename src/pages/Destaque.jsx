@@ -10,6 +10,10 @@ import { CRITERIOS_LIDERANCA, MOTIVOS_ELIMINATORIOS, PESOS_PADRAO, rankingDestaq
 import { PERGUNTAS_EQUIPE, PERGUNTAS_GESTAO } from "../../supabase/functions/ml-comercial/pesquisa.mjs";
 import { mesLongo, mesNome, dataCurta, numero } from "../lib/format.js";
 import { getSessao } from "../lib/sessao.js";
+import { lerXlsx } from "../lib/xlsxLeve.js";
+import { importarPlanilha } from "../lib/importarAvaliacoes.js";
+import { reduzirFoto } from "../lib/foto.js";
+import { salvarEm } from "../services/dados.js";
 
 const nota1 = (x) => (x == null ? "—" : Number(x).toFixed(1).replace(".", ","));
 
@@ -33,8 +37,11 @@ export function pesosDestaque(dados) {
 /** Ranking do mês com o que houver: votação encerrada do mês + avaliações da liderança. */
 export function rankingDoMes({ dados, elenco, pesquisas, mes }) {
   const pesq = pesquisas.find((p) => p.mes === mes && p.status === "encerrada") || null;
-  const pessoas = pesq?.avaliados?.length ? pesq.avaliados : elenco.map((p) => ({ id: p.id, nome: p.nome }));
   const avaliacoes = dados.destaque.filter((a) => a.mes === mes);
+  const base = pesq?.avaliados?.length ? pesq.avaliados : elenco.map((p) => ({ id: p.id, nome: p.nome }));
+  // Quem só tem avaliação da liderança no mês (ex.: histórico importado) também aparece.
+  const extra = avaliacoes.filter((a) => !base.some((p) => p.id === a.pessoaId)).map((a) => ({ id: a.pessoaId, nome: a.nome }));
+  const pessoas = [...base, ...extra.filter((p, i) => extra.findIndex((q) => q.id === p.id) === i)];
   return { pesq, ranking: rankingDestaque({ pessoas, equipe: pesq?.resultado, avaliacoes, pesos: pesosDestaque(dados) }) };
 }
 
@@ -46,11 +53,12 @@ export default function Destaque() {
       <Cabecalho sobre="Destaque do mês" titulo="Votação, avaliação e ranking" sub="Para toda a MinasLab. A equipe vota por link, sem login e sem nome; a liderança avalia aqui; o ranking fecha sozinho.">
         {aba !== "votacao" && <SeletorMes />}
       </Cabecalho>
-      <Abas valor={aba} aoMudar={setAba} abas={[["votacao", "Votação da equipe"], ["lideranca", `Avaliação da liderança · ${mesNome(mes)}`], ["ranking", `Ranking · ${mesNome(mes)}`], ["gestao", "Como avaliam a gestão"]]} />
+      <Abas valor={aba} aoMudar={setAba} abas={[["votacao", "Votação da equipe"], ["lideranca", `Avaliação da liderança · ${mesNome(mes)}`], ["ranking", `Ranking · ${mesNome(mes)}`], ["gestao", "Como avaliam a gestão"], ["fotos", "Fotos"]]} />
       {aba === "votacao" && <Votacoes />}
       {aba === "lideranca" && <Lideranca />}
       {aba === "ranking" && <Ranking />}
       {aba === "gestao" && <Gestao />}
+      {aba === "fotos" && <Fotos />}
     </>
   );
 }
@@ -61,6 +69,7 @@ function Votacoes() {
   const [nova, setNova] = useState(false);
   const [vendo, setVendo] = useState(null);
   const [codigos, setCodigos] = useState(null);
+  const [importar, setImportar] = useState(false);
   const [erro, setErro] = useState("");
   const pag = usePaginacao(p.lista, 5);
 
@@ -73,7 +82,10 @@ function Votacoes() {
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
         <h2>Votações</h2>
-        <button type="button" className="btn" onClick={() => setNova(true)}>Nova votação</button>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button type="button" className="btn claro" onClick={() => setImportar(true)}>Importar histórico da planilha</button>
+          <button type="button" className="btn" onClick={() => setNova(true)}>Nova votação</button>
+        </div>
       </div>
       {p.erro && <div className="aviso ruim">{p.erro}</div>}
       {erro && <div className="aviso ruim">{erro}</div>}
@@ -86,10 +98,10 @@ function Votacoes() {
               <h3>{v.titulo}</h3>
               <div className="suave peq">{mesLongo(v.mes)} · criada em {dataCurta(v.criadaEm.slice(0, 10))} · {v.avaliados.length} avaliado(s){v.lideres.length ? ` · ${v.lideres.length} da liderança` : ""}</div>
             </div>
-            <Chip tom={v.status === "aberta" ? "ok" : "neutro"}>{v.status === "aberta" ? "Aberta" : "Encerrada"}</Chip>
+            <Chip tom={v.status === "aberta" ? "ok" : "neutro"}>{v.id.startsWith("pimp") ? "Importada da planilha" : v.status === "aberta" ? "Aberta" : "Encerrada"}</Chip>
           </div>
           <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-            <div><div className="kpi-rot">Votos</div><div className="kpi-val tnum" style={{ fontSize: 26 }}>{v.totalVotos} <span className="suave peq">de {v.modo === "aberto" ? v.avaliados.length : v.codigos.length} {v.modo === "aberto" ? "pessoas" : "códigos"}</span></div></div>
+            <div><div className="kpi-rot">Votos</div><div className="kpi-val tnum" style={{ fontSize: 26 }}>{v.totalVotos} <span className="suave peq">{v.id.startsWith("pimp") ? "votos (máx. por pessoa)" : `de ${v.modo === "aberto" ? v.avaliados.length : v.codigos.length} ${v.modo === "aberto" ? "pessoas" : "códigos"}`}</span></div></div>
             <div style={{ flex: "1 1 220px", alignSelf: "center" }}><div className="barra"><div style={{ width: `${Math.min(100, (v.totalVotos / Math.max(1, v.modo === "aberto" ? v.avaliados.length : v.codigos.length)) * 100)}%`, background: "var(--marca)" }} /></div></div>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -106,6 +118,7 @@ function Votacoes() {
       {nova && <NovaVotacao aoFechar={() => setNova(false)} aoCriar={(v) => { p.trocar(v); setNova(false); setCodigos(v); }} />}
       {codigos && <LinkCodigos v={p.lista.find((x) => x.id === codigos.id) || codigos} aoFechar={() => setCodigos(null)} aoMudar={p.trocar} />}
       {vendo && <Resultado v={vendo} aoFechar={() => setVendo(null)} />}
+      {importar && <ImportarHistorico aoFechar={() => setImportar(false)} aoConcluir={() => p.recarregar()} />}
     </>
   );
 }
@@ -353,6 +366,7 @@ function Ranking() {
   const p = usePesquisas();
   const { pesq, ranking } = rankingDoMes({ dados, elenco, pesquisas: p.lista, mes });
   const top = podio(ranking);
+  const fotoDe = (id) => dados.fotos.find((f) => f.id === id)?.foto || "";
   const pesos = pesosDestaque(dados);
   const [pe, setPe] = useState(String(pesos.equipe));
   const pag = usePaginacao(ranking, 10, mes);
@@ -365,7 +379,7 @@ function Ranking() {
       <div className="podio">
         {[1, 0, 2].map((k) => top[k] ? (
           <div key={k} className={`podio-lugar l${k + 1}`}>
-            <span className="avatar grande">{iniciais(top[k].nome)}</span>
+            <span className="avatar grande">{fotoDe(top[k].id) ? <img src={fotoDe(top[k].id)} alt="" /> : iniciais(top[k].nome)}</span>
             <b>{top[k].nome}</b>
             <span className="podio-nota tnum">{nota1(top[k].total)}</span>
             <span className="podio-degrau">{k + 1}º</span>
@@ -445,6 +459,100 @@ function Gestao() {
         <Paginacao pag={pagS} rotulo="sugestões" />
         <div className="aviso marca peq" style={{ marginTop: 12 }}>Leia como presente, não como ataque: agradeça na reunião, escolha 1 ponto para mudar e conte à equipe o que vai fazer. Isso faz as pessoas continuarem respondendo com sinceridade.</div>
       </Card>
+    </>
+  );
+}
+
+// ------------------------------------------------------------------ importar
+function ImportarHistorico({ aoFechar, aoConcluir }) {
+  const { elenco, gravar } = useBase();
+  const [prev, setPrev] = useState(null);
+  const [erro, setErro] = useState("");
+  const [gravando, setGravando] = useState("");
+  const ler = async (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setErro(""); setPrev(null);
+    try { setPrev(importarPlanilha(await lerXlsx(f), elenco)); } catch (ex) { setErro(ex.message || "Não consegui ler a planilha."); }
+  };
+  const meses = prev ? [...new Set([...prev.lideranca.map((x) => x.mes), ...prev.pesquisas.map((x) => x.mes)])].sort() : [];
+  const importar = async () => {
+    try {
+      let n = 0;
+      for (const a of prev.lideranca) { await gravar("destaque", a); setGravando(`Liderança: ${++n} de ${prev.lideranca.length}`); }
+      for (const p of prev.pesquisas) { await salvarEm("rh_comercial_pesquisas", p); setGravando(`Votação da equipe de ${mesLongo(p.mes)}`); }
+      aoConcluir();
+      aoFechar();
+    } catch (ex) { setErro(ex.message); setGravando(""); }
+  };
+  return (
+    <Modal titulo="Importar histórico da planilha" aoFechar={aoFechar}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <p className="peq" style={{ margin: 0 }}>Use a planilha <b>Avaliação Técnica e Comportamental</b> (abas “Avaliação Liderança” e “Avaliação Equipe”). Os votos da equipe entram só como <b>somas por pessoa e mês</b>, sem data, hora nem ordem, do mesmo jeito que a votação do sistema. Importar de novo a mesma planilha substitui o que foi importado antes.</p>
+        <input type="file" accept=".xlsx" onChange={ler} aria-label="Planilha .xlsx" />
+        {erro && <div className="aviso ruim">{erro}</div>}
+        {prev && (
+          <>
+            <div className="tabela-caixa">
+              <table>
+                <thead><tr><th>Mês</th><th>Avaliações da liderança</th><th>Votação da equipe</th></tr></thead>
+                <tbody>
+                  {meses.map((m) => {
+                    const pq = prev.pesquisas.find((x) => x.mes === m);
+                    return <tr key={m}><td>{mesLongo(m)}</td><td className="tnum">{prev.lideranca.filter((x) => x.mes === m).length}</td><td className="peq">{pq ? `${pq.avaliados.length} pessoa(s) · até ${pq.totalVotos} votos cada` : "—"}</td></tr>;
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {prev.pessoas.some((p) => !p.doRH) && <div className="aviso marca peq"><b>Fora do cadastro ativo do RH</b> (entram como histórico): {prev.pessoas.filter((p) => !p.doRH).map((p) => p.nome).join(", ")}.</div>}
+            {prev.avisos.length > 0 && <div className="aviso alerta peq"><b>Confira:</b><ul style={{ margin: "6px 0 0", paddingLeft: 18 }}>{prev.avisos.map((a, i) => <li key={i}>{a}</li>)}</ul></div>}
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", alignItems: "center", flexWrap: "wrap" }}>
+              {gravando && <span className="suave peq">{gravando}…</span>}
+              <button type="button" className="btn claro" onClick={aoFechar}>Cancelar</button>
+              <button type="button" className="btn" disabled={!!gravando || (!prev.lideranca.length && !prev.pesquisas.length)} onClick={importar}>Importar {prev.lideranca.length} avaliação(ões) e {prev.pesquisas.length} mês(es) de votação</button>
+            </div>
+          </>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+// ------------------------------------------------------------------ fotos
+function Fotos() {
+  const { elenco, dados, gravar, remover } = useBase();
+  const [erro, setErro] = useState("");
+  const ativos = [...elenco].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")).map((p) => ({ id: p.id, nome: p.nome }));
+  const doHistorico = dados.destaque.filter((a) => !ativos.some((p) => p.id === a.pessoaId)).map((a) => ({ id: a.pessoaId, nome: a.nome }));
+  const pessoas = [...ativos, ...doHistorico.filter((p, i) => doHistorico.findIndex((q) => q.id === p.id) === i)];
+  const pag = usePaginacao(pessoas, 12);
+  const fotoDe = (id) => dados.fotos.find((f) => f.id === id);
+  const enviar = async (p, arquivo) => {
+    setErro("");
+    try { await gravar("fotos", { id: p.id, nome: p.nome, foto: await reduzirFoto(arquivo) }); } catch (e) { setErro(e.message); }
+  };
+  return (
+    <>
+      <div className="aviso marca peq">A foto entra sozinha no ranking e no slide “Destaque do mês” da Reunião mensal de resultados. Use foto só com autorização da pessoa. A imagem é reduzida antes de salvar e só a direção vê.</div>
+      {erro && <div className="aviso ruim">{erro}</div>}
+      <div className="fotos-grade">
+        {pag.itens.map((p) => {
+          const f = fotoDe(p.id);
+          return (
+            <div key={p.id} className="foto-cartao">
+              <span className="foto-pessoa">{f?.foto ? <img src={f.foto} alt="" /> : iniciais(p.nome)}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <b style={{ display: "block", fontWeight: 600 }}>{p.nome}</b>
+                <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+                  <label className="btn claro mini" style={{ cursor: "pointer" }}>{f?.foto ? "Trocar foto" : "Enviar foto"}<input type="file" accept="image/*" hidden onChange={(e) => e.target.files?.[0] && enviar(p, e.target.files[0])} /></label>
+                  {f?.foto && <button type="button" className="btn perigo mini" onClick={() => window.confirm(`Tirar a foto de ${p.nome}?`) && remover("fotos", p.id)}>Tirar</button>}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <Paginacao pag={pag} rotulo="pessoas" />
     </>
   );
 }

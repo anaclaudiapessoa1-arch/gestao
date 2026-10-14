@@ -226,7 +226,7 @@ const RENDER = {
             <div className="dk-ranking">
               <b className="dk-ranking-tit">Os 3 melhores</b>
               {top.map((x, i) => (
-                <div key={x.id} className="dk-ranking-l"><span className="dk-ranking-pos">{i + 1}º</span><span className="dk-ranking-nome">{x.nome}</span><span className="dk-ranking-nota">{String(x.total).replace(".", ",")}</span><span className="dk-ranking-det">equipe {String(x.equipe).replace(".", ",")} · liderança {String(x.lideranca).replace(".", ",")}</span></div>
+                <div key={x.id} className="dk-ranking-l"><span className="dk-ranking-pos">{i + 1}º</span><span className="dk-ranking-nome"><span className="dk-ranking-foto">{p.ctx.fotos?.[x.id] ? <img src={p.ctx.fotos[x.id]} alt="" /> : iniciais(x.nome)}</span>{x.nome}</span><span className="dk-ranking-nota">{String(x.total).replace(".", ",")}</span><span className="dk-ranking-det">equipe {String(x.equipe).replace(".", ",")} · liderança {String(x.lideranca).replace(".", ",")}</span></div>
               ))}
             </div>
           ) : <Aguardando texto="O ranking aparece quando a votação do mês for encerrada e a liderança avaliar (menu Destaque do mês)." />}
@@ -235,13 +235,16 @@ const RENDER = {
     );
   },
   destaque: (p) => {
+    const auto = !p.s.nome?.trim();
     const nome = p.s.nome?.trim() || p.ctx.podio?.[0]?.nome || "";
+    // Foto: a do slide; sem ela, a foto cadastrada do 1º lugar (Destaque do mês › Fotos).
+    const foto = p.s.foto || (auto && p.ctx.fotos?.[p.ctx.podio?.[0]?.id]) || "";
     const its = linhas(T(p.s.itens, p.ctx));
     const icones = ["★", "⚡", "◎", "✓", "♦"];
     return (
       <Moldura {...p} classe="dk-tit-centro">
         <div className="dk-destaque">
-          <div className="dk-foto">{p.s.foto ? <img src={p.s.foto} alt="" /> : <span>{nome ? iniciais(nome) : "?"}</span>}</div>
+          <div className="dk-foto">{foto ? <img src={foto} alt="" /> : <span>{nome ? iniciais(nome) : "?"}</span>}</div>
           <div className="dk-col" style={{ justifyContent: "center", gap: "1.2cqw" }}>
             {p.s.setor && <span className="dk-etiqueta verde">{T(p.s.setor, p.ctx)}</span>}
             <div className="dk-destaque-nome">{nome || "Defina o nome ou encerre a votação"}</div>

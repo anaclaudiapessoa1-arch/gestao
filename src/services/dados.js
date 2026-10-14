@@ -27,6 +27,7 @@ export const COLECOES = {
   nps: "rh_comercial_nps",
   destaque: "rh_comercial_destaque",          // avaliação da liderança (Destaque do Mês)
   apresentacoes: "rh_comercial_apresentacoes", // apresentações editáveis (estúdio)
+  fotos: "rh_comercial_fotos",                 // fotos dos colaboradores (ranking e apresentação)
 };
 
 const chamar = (action, corpo = {}) => comCracha(SYNC, { action, ...corpo });
@@ -63,4 +64,11 @@ export async function apagar(chave, id) {
 export async function elencoRH() {
   const r = await chamar("elenco");
   return r?.pessoas ?? [];
+}
+
+/** Grava direto numa coleção fora do carregamento padrão (ex.: votações importadas). */
+export async function salvarEm(colecao, registro) {
+  const r = await chamar("upsert", { colecao, registro });
+  if (!r?.registro?.id) throw new Error("O servidor não confirmou a gravação. Recarregue e confira.");
+  return r.registro;
 }

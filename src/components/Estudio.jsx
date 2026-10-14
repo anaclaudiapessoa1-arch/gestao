@@ -8,6 +8,7 @@ import { SlideML, Apresentador, ImpressaoDeck, nomeLayout } from "./Deck.jsx";
 import { MODELOS, LAYOUTS, ROTULOS_CAMPOS, modeloPorId, slidesDoModelo, slideEmBranco, preencher } from "../lib/modelosApresentacao.js";
 import { usePesquisas, rankingDoMes, pesosDestaque } from "../pages/Destaque.jsx";
 import { podio } from "../lib/destaque.js";
+import { reduzirFoto } from "../lib/foto.js";
 import { totaisMes, serie } from "../lib/calculos.js";
 import { mesLongo, mesNome, somarMeses, dataCurta, novoId, hojeBR } from "../lib/format.js";
 
@@ -30,7 +31,8 @@ function useContexto(deck) {
     const anterior = dados.apresentacoes
       .filter((d) => d.modelo === deck.modelo && d.id !== deck.id && String(d.ref) < String(ref))
       .sort((a, b) => String(b.ref).localeCompare(String(a.ref)))[0];
-    return { mes: ref, valores, indicadores, serie: ser, podio: top, anterior: anterior?.ata || [], ata: deck.ata || [] };
+    const fotos = Object.fromEntries((dados.fotos || []).filter((f) => f.foto).map((f) => [f.id, f.foto]));
+    return { mes: ref, valores, indicadores, serie: ser, podio: top, fotos, anterior: anterior?.ata || [], ata: deck.ata || [] };
   }, [deck, resumo, config, dados, elenco, pesq.lista, precisaRanking, base.mes]);
 }
 
@@ -290,20 +292,7 @@ function Foto({ valor, aoMudar }) {
   const escolher = (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    if (!f.type.startsWith("image/")) { setErro("Escolha uma imagem."); return; }
-    const img = new Image();
-    img.onload = () => {
-      const lado = Math.min(360, img.width, img.height);
-      const c = document.createElement("canvas");
-      c.width = c.height = lado;
-      const menor = Math.min(img.width, img.height);
-      c.getContext("2d").drawImage(img, (img.width - menor) / 2, (img.height - menor) / 2, menor, menor, 0, 0, lado, lado);
-      aoMudar(c.toDataURL("image/jpeg", 0.8));
-      URL.revokeObjectURL(img.src);
-      setErro("");
-    };
-    img.onerror = () => setErro("Não consegui abrir esta imagem.");
-    img.src = URL.createObjectURL(f);
+    reduzirFoto(f).then((url) => { aoMudar(url); setErro(""); }).catch((ex) => setErro(ex.message));
   };
   return (
     <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
