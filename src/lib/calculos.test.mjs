@@ -117,3 +117,9 @@ test("previsão do mês: base, pessimista e otimista", () => {
   assert.equal(p.pessimista, 12400);
   assert.equal(p.otimista, 12600 + (16000 - 12600) / 2);
 });
+
+test("metas da função saem dos indicadores da descrição de cargo", async () => {
+  const { metasDaFuncao } = await import("./calculos.js");
+  const m = metasDaFuncao({ kpis: "Coletas no prazo — coletas na data agendada — 95% ou mais\nAmostras perdidas — ocorrências no mês — zero" });
+  assert.deepEqual(m.map((x) => [x.indicador, x.meta]), [["Coletas no prazo", "95% ou mais"], ["Amostras perdidas", "zero"]]);
+});

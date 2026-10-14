@@ -8,6 +8,7 @@ import { Card, Chip, Cabecalho, Modal } from "../components/ui.jsx";
 import { Orientacao } from "../components/Orientacao.jsx";
 import { TRILHAS, trilhaPorId } from "../lib/trilhas.js";
 import { numero, dataCurta, hojeBR } from "../lib/format.js";
+import { metasDaFuncao } from "../lib/calculos.js";
 import { CARGOS_MINASLAB } from "../lib/cargosMinasLab.js";
 
 const linhas = (t) => String(t || "").split("\n").map((x) => x.trim()).filter(Boolean);
@@ -105,7 +106,8 @@ export default function Funcoes() {
               )}
               {f.missao && <div className="peq"><b>Missão:</b> {f.missao}</div>}
               {f.estrategia && <div className="aviso marca peq">{f.estrategia}</div>}
-              <div className="peq suave">Metas padrão: {mp.propostas ? `${mp.propostas} propostas` : "—"} · {mp.aprovacao ? `${mp.aprovacao}% aprovação` : "—"} · {mp.ligacoes ? `${mp.ligacoes} ligações/dia` : "—"}</div>
+              <MetasFuncao f={f} />
+              {(mp.propostas || mp.aprovacao || mp.ligacoes) ? <div className="peq suave"><b>Medidas pelo CRM:</b> {[mp.propostas && `${mp.propostas} propostas/mês`, mp.aprovacao && `${mp.aprovacao}% de aprovação`, mp.ligacoes && `${mp.ligacoes} ligações/dia`].filter(Boolean).join(" · ")}</div> : null}
               {linhas(f.outrasMetas).length > 0 && <div className="peq"><b>Outras metas:</b> {linhas(f.outrasMetas).join(" · ")}</div>}
               <div className="peq"><b>Critérios técnicos:</b> {(f.criterios || []).map((c) => c.nome).join(", ") || "padrão"}</div>
               {linhas(f.rotina).length > 0 && (
@@ -235,4 +237,27 @@ function VerDescricao({ f, aoFechar }) {
       <div className="impressao" aria-hidden="true"><DocumentoCargo f={f} /></div>
     </Modal>
   );
+}
+
+/** As metas próprias da função (dos indicadores da descrição de cargo). */
+export function MetasFuncao({ f, titulo = "Metas da função" }) {
+  const ms = metasDaFuncao(f);
+  if (!ms.length) return <div className="peq suave">Sem indicadores na descrição: inclua em Editar › Indicadores de desempenho.</div>;
+  return (
+    <div className="peq">
+      <b>{titulo}:</b>
+      <ul className="metas-funcao">
+        {ms.map((m) => <li key={m.indicador}><span>{m.indicador}</span>{metaComNumero(m, f.metasPadrao) && <b>{metaComNumero(m, f.metasPadrao)}</b>}</li>)}
+      </ul>
+    </div>
+  );
+}
+
+// "meta mensal da pessoa" vira o número das metas do CRM quando houver.
+function metaComNumero(m, mp = {}) {
+  if (!/da pessoa/i.test(m.meta)) return m.meta;
+  if (/propostas/i.test(m.indicador) && mp.propostas) return `${mp.propostas} por mês`;
+  if (/aprova/i.test(m.indicador) && mp.aprovacao) return `${mp.aprovacao}% ou mais`;
+  if (/prospec|contatos/i.test(m.indicador) && mp.ligacoes) return `${mp.ligacoes} por dia`;
+  return m.meta;
 }

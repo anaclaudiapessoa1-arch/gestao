@@ -7,6 +7,7 @@ import { pct, mesLongo, mesNome, mesCurto, dataCurta, hojeBR, brl } from "../lib
 import { realizado, metasDe, mediaAnterior, pontos, roteiroFeedback, serie } from "../lib/calculos.js";
 import { Desenvolvimento } from "../components/Desenvolvimento.jsx";
 import { Orientacao } from "../components/Orientacao.jsx";
+import { MetasFuncao } from "./Funcoes.jsx";
 
 export function SeletorPessoa({ atual, tela }) {
   const { equipe } = useBase();
@@ -91,6 +92,7 @@ export default function Pessoas({ param }) {
         <Card>
           <h3>Pontos a melhorar e destaques</h3>
           <div style={{ marginTop: 6 }}><Pontos lista={lista} /></div>
+          {funcaoDe(membro) && <div style={{ marginTop: 14 }}><MetasFuncao f={funcaoDe(membro)} titulo={`Metas de ${funcaoDe(membro).nome} (conferir no mês)`} /></div>}
         </Card>
         <Card>
           <h3>Evolução de propostas</h3>

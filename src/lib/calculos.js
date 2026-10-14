@@ -278,3 +278,14 @@ export function previsaoMes({ aprovado, abertas }) {
   const otim = base + (total - base) / 2;
   return { pessimista: pess, base, otimista: otim, emAberto: total - aprovado };
 }
+
+/**
+ * Metas próprias de cada função, tiradas dos indicadores da descrição de
+ * cargo ("Indicador — como medir — meta"). Cada função tem as suas; as metas
+ * do CRM (propostas, aprovação, ligações) só valem para quem vende.
+ */
+export function metasDaFuncao(funcao) {
+  return String(funcao?.kpis || "").split("\n").map((l) => l.trim()).filter(Boolean)
+    .map((l) => { const [indicador, medida = "", meta = ""] = l.split(/\s+[—–]\s+/); return { indicador: indicador.trim(), medida: medida.trim(), meta: meta.trim() }; })
+    .filter((k) => k.indicador);
+}
