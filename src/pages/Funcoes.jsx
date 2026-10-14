@@ -43,7 +43,7 @@ export default function Funcoes() {
   const faltam = MODELOS.filter((m) => !dados.funcoes.some((f) => f.nome === m.nome));
   const carregarCargos = async () => {
     try {
-      for (const m of faltam) await gravar("funcoes", paraRegistro(m));
+      for (const m of faltam) await gravar("funcoes", { ...paraRegistro(m), ...(m.versao ? { modeloVersao: m.versao } : {}) });
       setMsg(`${faltam.length} descrição(ões) de cargo carregada(s). Revise metas e indicadores de cada uma.`);
     } catch (e) { setMsg(e.message); }
   };
@@ -54,6 +54,18 @@ export default function Funcoes() {
     if (!window.confirm(`Aplicar as metas padrão de “${f.nome}” a ${pessoas.length} pessoa(s)? As metas atuais delas serão trocadas.`)) return;
     for (const m of pessoas) await gravar("equipe", { ...m, metas: { ...f.metasPadrao } });
     setMsg(`Metas aplicadas a ${pessoas.map((m) => m.nome).join(", ")}.`);
+  };
+
+  // Descrição nova enviada para um cargo que já está no sistema: troca o texto
+  // pelo do documento e mantém as metas e os treinamentos já escolhidos.
+  const novaVersao = (f) => { const m = MODELOS.find((x) => x.nome === f.nome); return m?.versao && f.modeloVersao !== m.versao ? m : null; };
+  const atualizarDescricao = async (f, m) => {
+    if (!window.confirm(`Trocar a descrição de “${f.nome}” pela versão de ${m.versao.split("-").reverse().join("/")}? Missão, responsabilidades, competências, indicadores, critérios, rotina e requisitos passam a ser os do documento novo. As metas e os treinamentos atuais ficam como estão.`)) return;
+    try {
+      const reg = paraRegistro({ ...paraForm(f), ...m, id: f.id, metasPadrao: f.metasPadrao, trilhas: [...new Set([...(f.trilhas || []), ...(m.trilhas || [])])] });
+      await gravar("funcoes", { ...reg, modeloVersao: m.versao, criadoEm: f.criadoEm });
+      setMsg(`Descrição de “${f.nome}” atualizada. Confira em Descrição de cargo.`);
+    } catch (e) { setMsg(e.message); }
   };
 
   return (
@@ -85,6 +97,12 @@ export default function Funcoes() {
                 <h2>{f.nome}</h2>
                 <Chip tom={pessoas.length ? "marca" : "neutro"}>{pessoas.length} pessoa(s)</Chip>
               </div>
+              {novaVersao(f) && (
+                <div className="aviso alerta peq" style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
+                  <span>Há uma versão nova desta descrição de cargo ({novaVersao(f).versao.split("-").reverse().join("/")}).</span>
+                  <button type="button" className="btn mini" onClick={() => atualizarDescricao(f, novaVersao(f))}>Atualizar descrição</button>
+                </div>
+              )}
               {f.missao && <div className="peq"><b>Missão:</b> {f.missao}</div>}
               {f.estrategia && <div className="aviso marca peq">{f.estrategia}</div>}
               <div className="peq suave">Metas padrão: {mp.propostas ? `${mp.propostas} propostas` : "—"} · {mp.aprovacao ? `${mp.aprovacao}% aprovação` : "—"} · {mp.ligacoes ? `${mp.ligacoes} ligações/dia` : "—"}</div>
