@@ -9,7 +9,7 @@ const elenco = [{ id: "rh1", nome: "Maria Souza Lima" }, { id: "rh2", nome: "JoÃ
 test("casa nome da planilha com o RH pelo primeiro e Ãºltimo nome", () => {
   assert.equal(casarPessoa("MARIA LIMA", elenco).id, "rh1");
   assert.equal(casarPessoa("Pedro Alves", elenco).id, "plan_pedro-alves");
-  assert.equal(casarPessoa("Maria Brandaozino", [...elenco, { id: "rh3", nome: "Maria Teles Brandaozinho" }]).id, "plan_maria-capuchino");
+  assert.equal(casarPessoa("Maria Brandaozino", [...elenco, { id: "rh3", nome: "Maria Teles Brandaozinho" }]).id, "plan_maria-brandaozino");
   assert.equal(casarPessoa("Maria Teles", [...elenco, { id: "rh3", nome: "Maria Teles Brandaozinho" }]).id, "rh3");
 });
 
