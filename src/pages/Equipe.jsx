@@ -4,6 +4,7 @@ import { Card, Chip, Cabecalho, Modal, iniciais, Abas } from "../components/ui.j
 import { getSessao } from "../lib/sessao.js";
 import { mesAtual, mesesAte, somarMeses, numero, brl, hojeBR, dataCurta } from "../lib/format.js";
 import { Orientacao } from "../components/Orientacao.jsx";
+import { MetasFuncao } from "./Funcoes.jsx";
 import { navegar } from "../lib/rota.js";
 import { mediaAnterior, realizado } from "../lib/calculos.js";
 
@@ -170,7 +171,8 @@ function EditorPessoa({ inicial, aoFechar }) {
             {elenco.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
           </select>
         </div>
-        <div className="rotulo" style={{ marginTop: 4 }}>Metas mensais (deixe em branco o que não se aplica)</div>
+        {m.funcaoId && dados.funcoes.find((x) => x.id === m.funcaoId) && <MetasFuncao f={dados.funcoes.find((x) => x.id === m.funcaoId)} titulo="Metas da função (vêm da descrição de cargo)" />}
+        <div className="rotulo" style={{ marginTop: 4 }}>Metas medidas pelo CRM (só para quem envia propostas; deixe em branco o que não se aplica)</div>
         {sugestao != null && <div className="suave peq">Média dos últimos 6 meses: {Math.round(sugestao)} propostas. Sugestão de meta (+10%): {Math.round(sugestao * 1.1)}.</div>}
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           <div className="campo"><label htmlFor="p-m1">Propostas/mês</label><input id="p-m1" className="entrada num" type="number" min="0" value={m.metas.propostas ?? ""} onChange={setMeta("propostas")} /></div>

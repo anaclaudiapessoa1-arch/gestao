@@ -134,6 +134,7 @@ function Editor({ inicial, aoFechar }) {
   const { gravar } = useBase();
   const [f, setF] = useState({ criteriosTexto: "", ...inicial });
   const [erro, setErro] = useState("");
+  const [crm, setCrm] = useState(() => !!(numero(inicial.metasPadrao?.propostas) || numero(inicial.metasPadrao?.aprovacao) || numero(inicial.metasPadrao?.ligacoes)));
   const campo = (k) => ({ value: f[k] || "", onChange: (e) => setF((x) => ({ ...x, [k]: e.target.value })) });
   const meta = (k) => ({ value: f.metasPadrao?.[k] ?? "", onChange: (e) => setF((x) => ({ ...x, metasPadrao: { ...x.metasPadrao, [k]: e.target.value } })) });
   const alternar = (id) => setF((x) => ({ ...x, trilhas: x.trilhas?.includes(id) ? x.trilhas.filter((t) => t !== id) : [...(x.trilhas || []), id] }));
@@ -158,14 +159,21 @@ function Editor({ inicial, aoFechar }) {
         {area("f-resp", "Responsabilidades principais", "responsabilidades", 8, "Uma por linha. Linha começando com “# ” vira título de grupo.")}
         {area("f-aut", "Autonomia (o que decide sozinho e o que precisa de aprovação)", "autonomia", 3, "Uma por linha.")}
         {area("f-req", "Requisitos de competência (formação, experiência, treinamentos obrigatórios)", "requisitos", 4, "Uma por linha. A ISO/IEC 17025 pede esses requisitos documentados por função.")}
-        {area("f-kpi", "Indicadores de desempenho", "kpis", 5, "Um por linha: “Indicador — como medir — meta”.")}
         {area("f-cond", "Condições de trabalho", "condicoes", 2, "Uma por linha.")}
-        <div className="rotulo">Metas padrão da função</div>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <div className="campo"><label htmlFor="f-m1">Propostas/mês</label><input id="f-m1" className="entrada num" type="number" min="0" {...meta("propostas")} /></div>
-          <div className="campo"><label htmlFor="f-m2">Aprovação mín. (%)</label><input id="f-m2" className="entrada num" type="number" min="0" max="100" {...meta("aprovacao")} /></div>
-          <div className="campo"><label htmlFor="f-m3">Ligações/dia</label><input id="f-m3" className="entrada num" type="number" min="0" {...meta("ligacoes")} /></div>
+        <EditorMetas kpis={f.kpis} aoMudar={(kpis) => setF((x) => ({ ...x, kpis }))} />
+        <div className="campo">
+          <label style={{ display: "flex", gap: 8, alignItems: "center", fontWeight: 600 }}>
+            <input type="checkbox" checked={crm} onChange={(e) => { setCrm(e.target.checked); if (!e.target.checked) setF((x) => ({ ...x, metasPadrao: {} })); }} />
+            Esta função envia propostas no CRM (metas medidas automaticamente)
+          </label>
         </div>
+        {crm && (
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <div className="campo"><label htmlFor="f-m1">Propostas/mês</label><input id="f-m1" className="entrada num" type="number" min="0" {...meta("propostas")} /></div>
+            <div className="campo"><label htmlFor="f-m2">Aprovação mín. (%)</label><input id="f-m2" className="entrada num" type="number" min="0" max="100" {...meta("aprovacao")} /></div>
+            <div className="campo"><label htmlFor="f-m3">Ligações/dia</label><input id="f-m3" className="entrada num" type="number" min="0" {...meta("ligacoes")} /><span className="suave peq">Ainda não registradas no CRM</span></div>
+          </div>
+        )}
         {area("f-outras", "Outras metas de atividade", "outrasMetas", 3, "Uma por linha (ex.: checklist semanal cumprido).")}
         {area("f-crit", "Critérios técnicos da avaliação", "criteriosTexto", 4, "Um por linha, no formato “Nome — descrição”. Substituem os quatro critérios padrão para quem tem esta função.")}
         {area("f-comp", "Competências necessárias (base do PDI)", "competencias", 3, "Uma por linha.")}
@@ -260,4 +268,30 @@ function metaComNumero(m, mp = {}) {
   if (/aprova/i.test(m.indicador) && mp.aprovacao) return `${mp.aprovacao}% ou mais`;
   if (/prospec|contatos/i.test(m.indicador) && mp.ligacoes) return `${mp.ligacoes} por dia`;
   return m.meta;
+}
+
+/** Metas da função, uma por linha da tabela (guardadas como “Indicador — como medir — meta”). */
+function EditorMetas({ kpis, aoMudar }) {
+  const ler = () => String(kpis || "").split("\n").filter((l) => l.trim()).map((l) => { const [a = "", b = "", c = ""] = l.split(/\s+[—–]\s+/); return [a.trim(), b.trim(), c.trim()]; });
+  const [linhasM, setLinhasM] = useState(ler);
+  const mudar = (ls) => { setLinhasM(ls); aoMudar(ls.filter((l) => l[0].trim()).map(([a, b, c]) => { a = a.trim(); b = b.trim(); c = c.trim(); return c ? `${a} — ${b || "conferência no mês"} — ${c}` : b ? `${a} — ${b}` : a; }).join("\n")); };
+  const set = (i, k, v) => mudar(linhasM.map((l, j) => (j === i ? l.map((x, q) => (q === k ? v : x)) : l)));
+  return (
+    <div className="campo">
+      <label>Metas da função</label>
+      <span className="suave peq">Cada função tem as suas. Indicador, como medir e a meta (ex.: “95% ou mais”, “zero”, “no mesmo dia”).</span>
+      <div className="editor-metas">
+        <div className="editor-metas-cab"><span>Indicador</span><span>Como medir</span><span>Meta</span><span /></div>
+        {linhasM.map((l, i) => (
+          <div key={i} className="editor-metas-linha">
+            <input className="entrada" aria-label="Indicador" value={l[0]} onChange={(e) => set(i, 0, e.target.value)} />
+            <input className="entrada" aria-label="Como medir" value={l[1]} onChange={(e) => set(i, 1, e.target.value)} />
+            <input className="entrada" aria-label="Meta" value={l[2]} onChange={(e) => set(i, 2, e.target.value)} />
+            <button type="button" className="btn perigo mini" aria-label="Tirar meta" onClick={() => mudar(linhasM.filter((_, j) => j !== i))}>×</button>
+          </div>
+        ))}
+      </div>
+      <div><button type="button" className="btn claro mini" onClick={() => mudar([...linhasM, ["", "", ""]])}>+ meta</button></div>
+    </div>
+  );
 }
