@@ -57,7 +57,12 @@ const comentarioUtil = (t) => {
   return s.slice(0, 500);
 };
 
-export function importarPlanilha(abas, elenco, anoPadrao = new Date().getFullYear()) {
+export function importarPlanilha(abas, elenco, anoPadrao = new Date().getFullYear(), sessao = null) {
+  // O avaliador da planilha com o mesmo primeiro nome de quem está importando vira o próprio login
+  // (assim a avaliação aparece como "sua" e não duplica se a pessoa abrir a ficha).
+  const primeiro = (x) => norm(x).split(" ")[0] || "";
+  const avaliadorDe = (nome) => (sessao?.usuario && primeiro(nome) && primeiro(nome) === primeiro(sessao.nome))
+    ? { avaliador: sessao.usuario, avaliadorNome: sessao.nome } : null;
   const avisos = [];
   const pessoas = new Map();
   const pessoa = (nome) => { const p = casarPessoa(nome, elenco); if (p) pessoas.set(p.id, p); return p; };
@@ -82,9 +87,10 @@ export function importarPlanilha(abas, elenco, anoPadrao = new Date().getFullYea
       const zeros = notasArr.filter((v) => v === 0).length;
       if (!elim && zeros && zeros < 10) avisos.push(`Liderança ${mes}: ${p.nome} (${avaliadorNome}) tem ${zeros} critério(s) com nota 0 — confira se foi nota mesmo ou se ficou em branco.`);
       const notas = Object.fromEntries(CRITERIOS_LIDERANCA.map((cr, k) => [cr.id, notasArr[k]]).filter(([, v]) => v !== null));
-      const avaliador = `plan:${slug(avaliadorNome)}`;
+      const meu = avaliadorDe(r[c.aval]);
+      const avaliador = meu ? meu.avaliador : `plan:${slug(avaliadorNome)}`;
       lideranca.push({
-        id: `${mes}_${p.id}_${avaliador}`, mes, pessoaId: p.id, nome: p.nome, avaliador, avaliadorNome,
+        id: `${mes}_${p.id}_${avaliador}`, mes, pessoaId: p.id, nome: p.nome, avaliador, avaliadorNome: meu ? meu.avaliadorNome : avaliadorNome,
         notas: elim && notasArr.every((v) => !v) ? {} : notas, eliminatorio: elim,
         obs: [r[c.motivo] && !/f[eé]rias/i.test(String(r[c.motivo])) ? String(r[c.motivo]) : "", "Importada da planilha"].filter(Boolean).join(" · "),
         importado: true,

@@ -42,3 +42,12 @@ test("equipe: vira soma por mês, sem voto próprio nem voto de quem não conviv
   assert.equal(p.status, "encerrada");
   assert.ok(r.avisos.some((a) => a.includes("deixado de fora")));
 });
+
+test("avaliador com o mesmo primeiro nome de quem importa vira o login dela", () => {
+  const abas = { "Avaliação Liderança": [cabL,
+    ["JULHO", 46275, "Maria Souza Lima", "x", "Paula Reis", 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, null, null, null, "Sim"],
+    ["JULHO", 46275, "Maria Souza Lima", "x", "Outra Pessoa", 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, null, null, null, "Sim"]] };
+  const r = importarPlanilha(abas, elenco, 2026, { usuario: "paula", nome: "Paula Teixeira" });
+  assert.deepEqual(r.lideranca.map((x) => x.avaliador), ["paula", "plan:outra-pessoa"]);
+  assert.equal(r.lideranca[0].id, "2026-07_rh1_paula");
+});

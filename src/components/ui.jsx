@@ -128,7 +128,7 @@ export function GraficoMeses({ serie, mesDestaque, meta, rotuloMes }) {
   );
 }
 
-export function Modal({ titulo, aoFechar, children }) {
+export function Modal({ titulo, aoFechar, children, largo = false }) {
   useEffect(() => {
     const f = (e) => e.key === "Escape" && aoFechar();
     window.addEventListener("keydown", f);
@@ -136,7 +136,7 @@ export function Modal({ titulo, aoFechar, children }) {
   }, [aoFechar]);
   return (
     <div className="modal-fundo" onMouseDown={(e) => e.target === e.currentTarget && aoFechar()}>
-      <div className="modal" role="dialog" aria-modal="true" aria-label={titulo}>
+      <div className={largo ? "modal largo" : "modal"} role="dialog" aria-modal="true" aria-label={titulo}>
         <h2>{titulo}</h2>
         <div style={{ marginTop: 16 }}>{children}</div>
       </div>

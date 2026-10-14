@@ -1,7 +1,7 @@
 // Destaque do Mês (para toda a MinasLab): votação anônima da equipe por link,
 // avaliação da liderança e o ranking pelo modelo híbrido (equipe 40% +
 // liderança 60%, as duas de 0 a 10). Também mostra como a equipe avalia a gestão.
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useBase, useCRM } from "../hooks/base.jsx";
 import { Card, Chip, Cabecalho, Modal, Abas, Paginacao, usePaginacao, iniciais } from "../components/ui.jsx";
 import { SeletorMes } from "../components/Layout.jsx";
@@ -236,7 +236,7 @@ function Resultado({ v, aoFechar }) {
   const ordem = [...(r?.equipe || [])].sort((a, b) => (b.media ?? -1) - (a.media ?? -1));
   const pag = usePaginacao(ordem, 8);
   return (
-    <Modal titulo={`Resultado · ${v.titulo}`} aoFechar={aoFechar}>
+    <Modal largo titulo={`Resultado · ${v.titulo}`} aoFechar={aoFechar}>
       {!r ? <div className="vazio">Encerre a votação para ver o resultado.</div> : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div className="suave peq">{r.votos} voto(s). Médias de 0 a 10. Quem teve menos de {r.minimo} votos aparece só com a contagem, para não dar para adivinhar quem votou.</div>
@@ -267,7 +267,13 @@ function Lideranca() {
   const { dados, elenco, mes } = useBase();
   const p = usePesquisas();
   const pesq = p.lista.find((x) => x.mes === mes);
-  const pessoas = pesq?.avaliados?.length ? pesq.avaliados : [...elenco].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")).map((x) => ({ id: x.id, nome: x.nome }));
+  // Quem já tem avaliação da liderança no mês sempre aparece (inclusive histórico importado).
+  const pessoas = useMemo(() => {
+    const base = pesq?.avaliados?.length ? pesq.avaliados : elenco.map((x) => ({ id: x.id, nome: x.nome }));
+    const m = new Map(base.map((x) => [x.id, x]));
+    for (const a of dados.destaque) if (a.mes === mes && !m.has(a.pessoaId)) m.set(a.pessoaId, { id: a.pessoaId, nome: a.nome });
+    return [...m.values()].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  }, [pesq, elenco, dados.destaque, mes]);
   const eu = getSessao()?.usuario || "";
   const [ficha, setFicha] = useState(null);
   const pag = usePaginacao(pessoas, 10, mes);
@@ -473,7 +479,7 @@ function ImportarHistorico({ aoFechar, aoConcluir }) {
     const f = e.target.files?.[0];
     if (!f) return;
     setErro(""); setPrev(null);
-    try { setPrev(importarPlanilha(await lerXlsx(f), elenco)); } catch (ex) { setErro(ex.message || "Não consegui ler a planilha."); }
+    try { setPrev(importarPlanilha(await lerXlsx(f), elenco, undefined, getSessao())); } catch (ex) { setErro(ex.message || "Não consegui ler a planilha."); }
   };
   const meses = prev ? [...new Set([...prev.lideranca.map((x) => x.mes), ...prev.pesquisas.map((x) => x.mes)])].sort() : [];
   const importar = async () => {
