@@ -22,6 +22,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { agregarPropostas, mesBR, probabilidadesPorIdade, chanceDaIdade, carteiraClientes } from "./agregar.mjs";
 import { CRITERIOS_LIDERANCA, MOTIVOS_ELIMINATORIOS, DIAS_CONVITE, conviteValido, validarAvaliacao } from "./lideranca.mjs";
+import { somarSetores } from "./setores.mjs";
 import { PERGUNTAS_EQUIPE, PERGUNTAS_GESTAO, validarVoto, aplicarVoto, resultado, gerarCodigos, normalizarCodigo, codigoValido } from "./pesquisa.mjs";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -642,6 +643,35 @@ Deno.serve(async (req) => {
           .filter((p) => ids.has(p.licitacao_id) && p.prazo && !["CONCLUIDO", "CONCLUÍDO", "CANCELADO"].includes(String(p.status || "").toUpperCase()))
           .sort((a, b) => String(a.prazo).localeCompare(String(b.prazo)));
         return resp({ licitacoes: vivas, prazos: abertos });
+      }
+
+      // Amostras e ensaios por setor do laboratório (mês pedido e o anterior).
+      case "setores": {
+        const mes = String(body.mes ?? "");
+        if (!/^\d{4}-\d{2}$/.test(mes)) return resp({ erro: "Informe o mês (AAAA-MM)." }, 400);
+        const meses = [somarMeses(mes, -1), mes];
+        const [os, ams] = await Promise.all([
+          lerTudo("ordens_servico", "id,data_recepcao,deleted_at"),
+          lerTudo("amostras", "id,ordem_servico_id,data_entrada,grupo_snapshot,deleted_at"),
+        ]);
+        const recepcao = new Map(os.filter((o) => !o.deleted_at).map((o) => [o.id, o.data_recepcao]));
+        const doPeriodo = ams
+          .filter((a) => !a.deleted_at)
+          .map((a) => ({ id: a.id, mes: mesBR(a.data_entrada || recepcao.get(a.ordem_servico_id) || null), matriz: a.grupo_snapshot || "Outros" }))
+          .filter((a) => a.mes && meses.includes(a.mes));
+        const ensaios: any[] = [];
+        const ids = doPeriodo.map((a) => a.id);
+        for (let i = 0; i < ids.length; i += 50) {
+          for (let de = 0; ; de += 1000) {
+            const { data, error } = await sb.from("amostra_parametros").select("amostra_id,parametro_rotulo_snapshot,tipo_execucao,deleted_at")
+              .in("amostra_id", ids.slice(i, i + 50)).order("id", { ascending: true }).range(de, de + 999);
+            if (error) throw error;
+            for (const e of data ?? []) if (!e.deleted_at) ensaios.push({ amostra_id: e.amostra_id, rotulo: e.parametro_rotulo_snapshot, tipo: e.tipo_execucao });
+            if (!data || data.length < 1000) break;
+          }
+        }
+        const porMes = somarSetores(doPeriodo, ensaios);
+        return resp({ geradoEm: new Date().toISOString(), meses, porMes });
       }
 
       // Pesquisas de satisfação registradas no CRM.

@@ -11,3 +11,4 @@ export const funilCRM = (meses = 6) => chamar("funil", { meses });
 export const carteiraCRM = () => chamar("carteira");
 export const licitacoesCRM = () => chamar("licitacoes");
 export const npsCRM = () => chamar("nps");
+export const setoresCRM = (mes) => chamar("setores", { mes });

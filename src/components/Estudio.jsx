@@ -2,7 +2,8 @@
 // slide (texto simples), apresenta em tela cheia e imprime/salva em PDF.
 // Gravação automática na coleção rh_comercial_apresentacoes.
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useBase } from "../hooks/base.jsx";
+import { useBase, useCRM } from "../hooks/base.jsx";
+import { setoresCRM } from "../services/crm.js";
 import { Card, Chip, Modal, Paginacao, usePaginacao } from "./ui.jsx";
 import { SlideML, Apresentador, ImpressaoDeck, nomeLayout } from "./Deck.jsx";
 import { MODELOS, LAYOUTS, ROTULOS_CAMPOS, modeloPorId, slidesDoModelo, slideEmBranco, preencher } from "../lib/modelosApresentacao.js";
@@ -22,6 +23,10 @@ function useContexto(deck) {
   const { resumo, config, dados, elenco } = base;
   const precisaRanking = deck.slides.some((s) => s.layout === "ranking" || (s.layout === "destaque" && !s.nome));
   const pesq = usePesquisas();
+  // Amostras por setor (CRM): só busca se a apresentação tiver o slide de setores ou de indicadores.
+  const refSet = deck.ref || base.mes;
+  const precisaSetores = deck.slides.some((s) => s.layout === "setores" || s.layout === "indicadores");
+  const set = useCRM(precisaSetores ? `setores-${refSet}` : "setores-nenhum", precisaSetores ? () => setoresCRM(refSet) : async () => null);
   return useMemo(() => {
     const ref = deck.ref || base.mes;
     const ant = somarMeses(ref, -1);
@@ -34,8 +39,8 @@ function useContexto(deck) {
       .filter((d) => d.modelo === deck.modelo && d.id !== deck.id && String(d.ref) < String(ref))
       .sort((a, b) => String(b.ref).localeCompare(String(a.ref)))[0];
     const fotos = Object.fromEntries((dados.fotos || []).filter((f) => f.foto).map((f) => [f.id, f.foto]));
-    return { mes: ref, valores, indicadores, serie: ser, podio: top, fotos, anterior: anterior?.ata || [], ata: deck.ata || [] };
-  }, [deck, resumo, config, dados, elenco, pesq.lista, precisaRanking, base.mes]);
+    return { mes: ref, valores, indicadores, serie: ser, podio: top, fotos, anterior: anterior?.ata || [], ata: deck.ata || [], setores: set.dados, erroSetores: set.erro };
+  }, [deck, resumo, config, dados, elenco, pesq.lista, precisaRanking, base.mes, set.dados, set.erro]);
 }
 
 // ------------------------------------------------------------------ lista

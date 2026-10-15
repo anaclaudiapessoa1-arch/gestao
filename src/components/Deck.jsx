@@ -183,8 +183,8 @@ const RENDER = {
     return (
       <Moldura {...p}>
         <div className="dk-col">
-          {linha(ind.rotulo, ind.t, p.s.amostras, true)}
-          {linha(ind.rotuloAnt, ind.ant, p.s.amostrasAnterior, true)}
+          {linha(ind.rotulo, ind.t, p.s.amostras || p.ctx.setores?.porMes?.[p.ctx.mes]?.total || "", true)}
+          {linha(ind.rotuloAnt, ind.ant, p.s.amostrasAnterior || p.ctx.setores?.porMes?.[p.ctx.setores?.meses?.[0]]?.total || "", true)}
           <div className="dk-ind-rodape">
             <div className="dk-ind-barra"><span>Aprovação</span><div><div style={{ width: `${Math.min(100, conv || 0)}%` }}>{pct(conv)}</div></div></div>
             {ind.meta ? <div className="dk-ind-barra"><span>Meta {brl(ind.meta, true)}</span><div><div style={{ width: `${Math.min(100, (ind.t.valorAprovado / ind.meta) * 100)}%`, background: ind.t.valorAprovado >= ind.meta ? "var(--ok)" : undefined }}>{pct((ind.t.valorAprovado / ind.meta) * 100)}</div></div></div> : null}
@@ -213,6 +213,49 @@ const RENDER = {
           </div>
           <div className="dk-legenda"><span><i className="claro" /> propostas enviadas</span><span><i /> aprovadas</span><span>valor aprovado no topo</span></div>
           {p.s.texto && <Destaque texto={p.s.texto} ctx={p.ctx} />}
+        </div>
+      </Moldura>
+    );
+  },
+  setores: (p) => {
+    const st = p.ctx.setores;
+    if (!st) return <Moldura {...p}><Aguardando texto={p.ctx.erroSetores || "Lendo as amostras do CRM…"} /></Moldura>;
+    const [mAnt, mAt] = st.meses;
+    const at = st.porMes[mAt] || { total: 0, porSetor: {}, porMatriz: {} };
+    const an = st.porMes[mAnt] || { total: 0, porSetor: {} };
+    const nomes = ["Microbiologia", "Físico-química", "Campo", "Parceiros"];
+    const rot = { Microbiologia: "Microbiologia", "Físico-química": "Físico-química", Campo: "Campo (in situ)", Parceiros: "Laboratórios parceiros" };
+    const max = Math.max(1, ...nomes.flatMap((n) => [at.porSetor[n]?.amostras || 0, an.porSetor[n]?.amostras || 0]));
+    const matrizes = Object.entries(at.porMatriz || {}).sort((a, b) => b[1] - a[1]);
+    const var_ = (a, b) => (b ? Math.round(((a - b) / b) * 100) : null);
+    return (
+      <Moldura {...p}>
+        <div className="dk-setores">
+          <div className="dk-setores-esq">
+            <Tile v={at.total} r={`Amostras recebidas em ${mesCurto(mAt)}`} escuro />
+            <Tile v={an.total} r={`Em ${mesCurto(mAnt)}`} />
+            {var_(at.total, an.total) != null && <div className={`dk-delta ${at.total >= an.total ? "sobe" : "desce"}`}>{at.total >= an.total ? "▲" : "▼"} {Math.abs(var_(at.total, an.total))}% no total</div>}
+          </div>
+          <div className="dk-col">
+            {nomes.map((n) => {
+              const a = at.porSetor[n] || { amostras: 0, ensaios: 0 };
+              const b = an.porSetor[n] || { amostras: 0, ensaios: 0 };
+              const v = var_(a.amostras, b.amostras);
+              return (
+                <div key={n} className="dk-setor">
+                  <div className="dk-setor-nome"><b>{rot[n]}</b><span>{a.ensaios} ensaios</span></div>
+                  <div className="dk-setor-barras">
+                    <div className="dk-setor-barra atual" style={{ width: `${(a.amostras / max) * 100}%` }}><em>{a.amostras}</em></div>
+                    <div className="dk-setor-barra" style={{ width: `${(b.amostras / max) * 100}%` }}><em>{b.amostras}</em></div>
+                  </div>
+                  <div className={`dk-setor-var ${v == null ? "" : v >= 0 ? "sobe" : "desce"}`}>{v == null ? "—" : `${v >= 0 ? "▲" : "▼"} ${Math.abs(v)}%`}</div>
+                </div>
+              );
+            })}
+            <div className="dk-legenda"><span><i /> {mesCurto(mAt)}</span><span><i className="claro" /> {mesCurto(mAnt)}</span><span>amostras com ao menos um ensaio do setor</span></div>
+            {matrizes.length > 0 && <div className="dk-setor-matrizes">{matrizes.map(([k, n]) => <span key={k}><b>{n}</b> {k}</span>)}</div>}
+            {p.s.texto && <Destaque texto={p.s.texto} ctx={p.ctx} />}
+          </div>
         </div>
       </Moldura>
     );

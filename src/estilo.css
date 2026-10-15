@@ -492,3 +492,22 @@ tr:last-child td { border-bottom: 0; }
 .dk-escala-tarefas { display: flex; flex-wrap: wrap; gap: .5cqw 1.4cqw; font-size: 1.1cqw; color: #24444f; }
 .dk-escala-tarefas i { font-style: normal; color: var(--marca); font-weight: 700; margin-right: .4cqw; }
 @media print { .dk-escala-dia, .dk-escala-cel { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+
+/* ---------- slide: amostras por setor ---------- */
+.dk-setores { display: grid; grid-template-columns: 18cqw 1fr; gap: 2.4cqw; height: 100%; align-items: center; }
+.dk-setores-esq { display: flex; flex-direction: column; gap: 1cqw; }
+.dk-setores-esq .dk-tile b { font-size: 3.4cqw; }
+.dk-setor { display: grid; grid-template-columns: 17cqw 1fr 7cqw; gap: 1.2cqw; align-items: center; padding: .7cqw 0; border-bottom: 1px solid #e3ecea; }
+.dk-setor-nome { display: flex; flex-direction: column; }
+.dk-setor-nome b { font: 600 1.45cqw Poppins, sans-serif; color: #1f3a4d; }
+.dk-setor-nome span { font-size: .95cqw; color: #6b7c80; }
+.dk-setor-barras { display: flex; flex-direction: column; gap: .35cqw; }
+.dk-setor-barra { position: relative; height: 1.5cqw; min-width: .4cqw; background: var(--marca-200); border-radius: .3cqw; }
+.dk-setor-barra.atual { height: 2.1cqw; background: var(--marca); }
+.dk-setor-barra em { position: absolute; left: calc(100% + .6cqw); top: 50%; transform: translateY(-50%); font-style: normal; font-size: 1.05cqw; font-weight: 600; color: #24444f; white-space: nowrap; }
+.dk-setor-barra.atual em { font-size: 1.3cqw; color: #0f4f4a; }
+.dk-setor-var { font-size: 1.15cqw; font-weight: 600; text-align: right; color: #6b7c80; }
+.dk-setor-var.sobe { color: var(--ok); } .dk-setor-var.desce { color: #dc2626; }
+.dk-setor-matrizes { display: flex; flex-wrap: wrap; gap: .5cqw 1.6cqw; font-size: 1.05cqw; color: #24444f; margin-top: .4cqw; }
+.dk-setor-matrizes b { color: var(--marca); }
+@media print { .dk-setor-barra { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
