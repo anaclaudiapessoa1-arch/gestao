@@ -10,8 +10,13 @@
 //
 // AUTORIZAÇÃO: o mesmo crachá do painel MinasLab (JWT HS256 assinado pelo
 // ml-sync com ML_JWT_SECRET). Conferências, em toda chamada:
-//   1) assinatura  2) validade  3) sis === "minaslab"  4) papel === "direcao"
-//   5) a conta segue ativa em ml_contas
+//   1) assinatura  2) validade  3) sis === "minaslab"  4) a conta segue ativa
+//   5) a PÁGINA liberada para o usuário em Acessos (acessos.mjs): cada leitura
+//      e gravação de dados e cada leitura do CRM confere a página. Ninguém
+//      entra sem liberação, exceto as donas (DONOS).
+// Os dados do sistema (Comercial e Laboratório) passam TODOS por aqui
+// (dadosCarregar/dadosGravar/dadosApagar), no mesmo padrão do ml-sync:
+// carimbo de quem gravou, lápide em vez de DELETE e aviso de revisão.
 // verify_jwt = false de propósito (o preflight CORS chega sem token); a
 // autorização é feita aqui dentro. Deploy com --no-verify-jwt.
 //
@@ -23,6 +28,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { agregarPropostas, mesBR, probabilidadesPorIdade, chanceDaIdade, carteiraClientes } from "./agregar.mjs";
 import { CRITERIOS_LIDERANCA, MOTIVOS_ELIMINATORIOS, DIAS_CONVITE, conviteValido, validarAvaliacao } from "./lideranca.mjs";
 import { somarSetores } from "./setores.mjs";
+import { SETORES, CHAVES, PAGINAS, colecaoDe, permissoes, podeLer, podeGravar, podeAcao, limparSetores } from "./acessos.mjs";
 import { PERGUNTAS_EQUIPE, PERGUNTAS_GESTAO, validarVoto, aplicarVoto, resultado, gerarCodigos, normalizarCodigo, codigoValido } from "./pesquisa.mjs";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -292,12 +298,18 @@ function listaPessoas(x: unknown, max: number) {
     .filter((p) => p.id && p.nome && !vistos.has(p.id) && vistos.add(p.id));
 }
 
-async function pesquisaDirecao(action: string, body: Record<string, unknown>, usuario: string) {
+async function pesquisaDirecao(action: string, body: Record<string, unknown>, usuario: string, perm: any) {
   switch (action) {
     case "pesquisaListar": {
       const { data, error } = await sb.from(T_REG).select("registro").eq("colecao", COL_PESQ).eq("apagado", false);
       if (error) throw error;
-      const itens = (await Promise.all((data ?? []).map(async (d: any) => semSegredos(d.registro?.status === "encerrada" ? await abrirRegistro(d.registro) : d.registro)))).sort((a, b) => String(b.criadaEm).localeCompare(String(a.criadaEm)));
+      // Os códigos de voto só vão para quem administra o Destaque do mês
+      // (quem só vê Reuniões recebe os resultados, nunca os códigos).
+      const veCodigos = podeAcao(perm, "pesquisaCodigos");
+      const itens = (await Promise.all((data ?? []).map(async (d: any) => {
+        const x = semSegredos(d.registro?.status === "encerrada" ? await abrirRegistro(d.registro) : d.registro);
+        return veCodigos ? x : { ...x, codigos: [] };
+      }))).sort((a, b) => String(b.criadaEm).localeCompare(String(a.criadaEm)));
       return resp({ itens });
     }
     case "pesquisaCriar": {
@@ -460,6 +472,162 @@ async function conviteDirecao(action: string, body: Record<string, unknown>, usu
   return null;
 }
 
+// ------------------------------------------------------------------ acessos e dados
+// A lista de acessos fica em ml_meta (chave "gestao_acessos"), tabela que só
+// a chave de serviço grava: o painel (ml-sync) grava ali apenas "rev" e o
+// freio de login, então ninguém consegue se dar páginas — nem regravar uma
+// liberação antiga — pela porta do painel.
+const T_META = "ml_meta";
+const META_ACESSOS = "gestao_acessos";
+
+async function lerAcessos() {
+  const { data, error } = await sb.from(T_META).select("valor,atualizado_em").eq("chave", META_ACESSOS).maybeSingle();
+  if (error) throw error;
+  const usuarios = data?.valor?.usuarios && typeof data.valor.usuarios === "object" ? data.valor.usuarios : {};
+  return { usuarios, versao: (data?.atualizado_em as string) ?? null };
+}
+
+async function lerPermissoes(usuario: string) {
+  const { usuarios } = await lerAcessos();
+  const reg = Object.prototype.hasOwnProperty.call(usuarios, usuario) ? usuarios[usuario] : null;
+  return permissoes(usuario, reg);
+}
+
+async function bump(colecao: string) {
+  const agora = Date.now();
+  const { data } = await sb.from(T_META).select("valor").eq("chave", "rev").maybeSingle();
+  const atual = (data?.valor as { rev?: number; porColecao?: Record<string, number> }) ?? {};
+  await sb.from(T_META).upsert({ chave: "rev", valor: { rev: agora, porColecao: { ...(atual.porColecao ?? {}), [colecao]: agora } }, atualizado_em: new Date().toISOString() });
+}
+
+async function listarColecao(nome: string) {
+  const itens: unknown[] = [];
+  let desde = "1970-01-01";
+  let desdeId = "";
+  for (;;) {
+    let q = sb.from(T_REG).select("id, registro, apagado, atualizado_em").eq("colecao", nome)
+      .order("atualizado_em", { ascending: true }).order("id", { ascending: true }).limit(1000);
+    q = desdeId ? q.or(`atualizado_em.gt.${desde},and(atualizado_em.eq.${desde},id.gt.${desdeId})`) : q.gt("atualizado_em", desde);
+    const { data, error } = await q;
+    if (error) throw error;
+    for (const l of data ?? []) if (!l.apagado) itens.push(l.registro);
+    if (!data || data.length < 1000) break;
+    desde = String(data[data.length - 1].atualizado_em);
+    desdeId = String(data[data.length - 1].id);
+  }
+  return itens;
+}
+
+const ID_OK = /^[A-Za-z0-9_.:\-]{1,160}$/;
+
+async function dadosAcao(action: string, body: Record<string, unknown>, usuario: string, perm: any) {
+  const setor = String(body.setor ?? "");
+  switch (action) {
+    case "eu":
+      return resp({ usuario, admin: perm.admin, setores: perm.setores });
+    case "elenco": {
+      // Porta estreita (igual à do painel): só id, nome e apelido dos ativos.
+      const { data, error } = await sb.from(T_REG).select("registro, apagado").eq("colecao", "rh_pessoas");
+      if (error) throw error;
+      const pessoas = (data ?? []).filter((r: any) => !r.apagado).map((r: any) => r.registro).filter((p: any) => p?.ativo !== false)
+        .map((p: any) => ({ id: p.id, nome: p.nome ?? "", apelido: p.apelido ?? "" }))
+        .sort((a: any, b: any) => String(a.nome).localeCompare(String(b.nome), "pt-BR"));
+      return resp({ pessoas });
+    }
+    case "dadosCarregar": {
+      if (!Object.prototype.hasOwnProperty.call(SETORES, setor)) return resp({ erro: "Setor desconhecido." }, 400);
+      const colecoes: Record<string, unknown[]> = {};
+      const recusadas: string[] = [];
+      await Promise.all(CHAVES.map(async (ch) => {
+        if (!podeLer(perm, setor, ch)) { recusadas.push(ch); colecoes[ch] = []; return; }
+        colecoes[ch] = await listarColecao(colecaoDe(setor, ch));
+      }));
+      return resp({ colecoes, recusadas });
+    }
+    case "dadosGravar": {
+      const chave = String(body.chave ?? "");
+      const registro = body.registro as Record<string, unknown>;
+      if (!podeGravar(perm, setor, chave)) return resp({ erro: "Você não tem acesso para editar esta parte.", semPermissao: true }, 403);
+      if (!registro || typeof registro !== "object" || Array.isArray(registro) || !ID_OK.test(String(registro.id ?? ""))) return resp({ erro: "Registro inválido." }, 400);
+      if (JSON.stringify(registro).length > 3_000_000) return resp({ erro: "Registro grande demais (fotos e imagens precisam ser menores)." }, 413);
+      const colecao = colecaoDe(setor, chave);
+      const agora = new Date().toISOString();
+      const reg = { ...registro, id: String(registro.id), atualizadoPor: usuario, atualizadoEm: agora };
+      const { data, error } = await sb.from(T_REG).upsert({ colecao, id: reg.id, registro: reg, apagado: false, atualizado_em: agora }).select("registro").maybeSingle();
+      if (error) throw error;
+      await bump(colecao);
+      return resp({ ok: true, registro: data?.registro ?? null });
+    }
+    case "dadosApagar": {
+      const chave = String(body.chave ?? "");
+      const id = String(body.id ?? "");
+      if (!podeGravar(perm, setor, chave)) return resp({ erro: "Você não tem acesso para editar esta parte.", semPermissao: true }, 403);
+      if (!ID_OK.test(id)) return resp({ erro: "Registro inválido." }, 400);
+      const colecao = colecaoDe(setor, chave);
+      const agora = new Date().toISOString();
+      const { error } = await sb.from(T_REG).upsert({ colecao, id, registro: { id, _apagado: true, atualizadoPor: usuario, atualizadoEm: agora }, apagado: true, atualizado_em: agora });
+      if (error) throw error;
+      await bump(colecao);
+      return resp({ ok: true });
+    }
+    case "dadosImportarVotacao": {
+      // Histórico importado da planilha (votação já encerrada, somas abertas).
+      if (!podeAcao(perm, "pesquisaCriar")) return resp({ erro: "Você não tem acesso ao Destaque do mês.", semPermissao: true }, 403);
+      const r = body.registro as Record<string, unknown>;
+      if (!r || !/^pimp\d{6}$/.test(String(r.id ?? "")) || r.status !== "encerrada" || r.modo !== "importada") return resp({ erro: "Votação importada inválida." }, 400);
+      const agora = new Date().toISOString();
+      const somas = r.somas && typeof r.somas === "object" ? r.somas : {};
+      const reg = {
+        id: String(r.id), titulo: String(r.titulo ?? "").slice(0, 120), mes: String(r.mes ?? "").slice(0, 7), modo: "importada", status: "encerrada",
+        minimo: Math.min(Math.max(Number(r.minimo) || 3, 2), 10), avaliados: listaPessoas(r.avaliados, 80), lideres: [], codigos: [],
+        somas, usados: {}, validos: [], totalVotos: Math.max(0, Number(r.totalVotos) || 0),
+        criadaEm: String(r.criadaEm ?? agora).slice(0, 30), encerradaEm: String(r.encerradaEm ?? agora).slice(0, 30), importada: true,
+        atualizadoPor: usuario, atualizadoEm: agora,
+      };
+      if (!/^\d{4}-\d{2}$/.test(reg.mes)) return resp({ erro: "Votação importada inválida." }, 400);
+      const { data, error } = await sb.from(T_REG).upsert({ colecao: COL_PESQ, id: reg.id, registro: reg, apagado: false, atualizado_em: agora }).select("registro").maybeSingle();
+      if (error) throw error;
+      await bump(COL_PESQ);
+      return resp({ ok: true, registro: data?.registro ?? null });
+    }
+    case "acessosListar": {
+      if (!perm.admin) return resp({ erro: "Só a administração edita os acessos.", semPermissao: true }, 403);
+      const [{ data: contas, error: e1 }, { usuarios }] = await Promise.all([
+        sb.from("ml_contas").select("usuario,nome,papel").eq("ativo", true),
+        lerAcessos(),
+      ]);
+      if (e1) throw e1;
+      const acessos: Record<string, unknown> = {};
+      for (const [u, r] of Object.entries(usuarios as Record<string, any>)) acessos[u] = { setores: limparSetores(r?.setores), valido: true, atualizadoEm: r?.atualizadoEm, atualizadoPor: r?.atualizadoPor };
+      return resp({ contas: (contas ?? []).map((c: any) => ({ usuario: c.usuario, nome: c.nome, papel: c.papel })), acessos, paginas: PAGINAS, setores: SETORES });
+    }
+    case "acessosGravar": {
+      if (!perm.admin) return resp({ erro: "Só a administração edita os acessos.", semPermissao: true }, 403);
+      const alvo = String(body.usuario ?? "").trim().toLowerCase();
+      if (!/^[a-z0-9._-]{2,40}$/.test(alvo)) return resp({ erro: "Usuário inválido." }, 400);
+      const { data: conta } = await sb.from("ml_contas").select("usuario").eq("usuario", alvo).maybeSingle();
+      if (!conta) return resp({ erro: "Esse login não existe no painel." }, 400);
+      const setores = limparSetores(body.setores);
+      for (let t = 0; t < 5; t++) {
+        const { usuarios, versao } = await lerAcessos();
+        const agora = new Date().toISOString();
+        const novo = { ...usuarios, [alvo]: { setores, atualizadoEm: agora, atualizadoPor: usuario } };
+        if (!Object.keys(setores).length) delete novo[alvo];
+        const linha = { chave: META_ACESSOS, valor: { usuarios: novo }, atualizado_em: agora };
+        // Grava só se ninguém gravou no meio (versão = atualizado_em lido).
+        const q = versao === null
+          ? sb.from(T_META).insert(linha).select("chave")
+          : sb.from(T_META).update(linha).eq("chave", META_ACESSOS).eq("atualizado_em", versao).select("chave");
+        const { data, error } = await q;
+        if (!error && (data ?? []).length === 1) return resp({ ok: true, usuario: alvo, setores });
+        await espera(120);
+      }
+      return resp({ erro: "Não consegui gravar agora. Tente de novo." }, 503);
+    }
+  }
+  return null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return resp({ erro: "Use POST." }, 405);
@@ -485,11 +653,17 @@ Deno.serve(async (req) => {
   if (!cracha || cracha.sis !== SIS) return resp({ erro: "Entre no sistema.", semSessao: true }, 401);
   const usuario = String(cracha.sub ?? "");
   if (!(await contaSegueAtiva(usuario))) return resp({ erro: "Esta conta foi desativada.", semSessao: true }, 401);
-  if (cracha.papel !== "direcao") return resp({ erro: "O Comercial é restrito à direção.", semPermissao: true }, 403);
 
   try {
+    const perm = await lerPermissoes(usuario);
+    const temAlgo = Object.keys(perm.setores).length > 0;
+    if (!temAlgo) return resp({ erro: "Você ainda não tem acesso a este sistema. Peça a liberação à administração.", semPermissao: true }, 403);
+    const d = await dadosAcao(action, body, usuario, perm);
+    if (d) return d;
+    // Daqui para baixo: leituras do CRM, votação e convites — cada uma pela página liberada.
+    if (!podeAcao(perm, action)) return resp({ erro: "Você não tem acesso a esta parte.", semPermissao: true }, 403);
     if (action.startsWith("pesquisa")) {
-      const r = await pesquisaDirecao(action, body, usuario);
+      const r = await pesquisaDirecao(action, body, usuario, perm);
       if (r) return r;
     }
     if (action.startsWith("convite")) {
@@ -672,6 +846,63 @@ Deno.serve(async (req) => {
         }
         const porMes = somarSetores(doPeriodo, ensaios);
         return resp({ geradoEm: new Date().toISOString(), meses, porMes });
+      }
+
+      // Painel do laboratório: OS em andamento (atrasadas e vencendo) e
+      // envios a laboratórios parceiros (prazo). O CRM não tem a data do laudo
+      // das análises internas; o prazo interno sai do vencimento da OS.
+      case "labPainel": {
+        const hoje = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10); // dia em Brasília
+        const mais = (d: number) => new Date(Date.parse(hoje) + d * 864e5).toISOString().slice(0, 10);
+        const [os, envios] = await Promise.all([
+          lerTudo("ordens_servico", "id,numero_os,cliente_id,status_os,data_recepcao,data_vencimento,deleted_at"),
+          lerTudo("provedor_envios", "id,provedor_nome,numero_os,data_envio,data_prevista,previsao_resultado,data_resultado,status,ativo,deleted_at"),
+        ]);
+        const vivas = os.filter((o) => !o.deleted_at);
+        const andamento = vivas.filter((o) => String(o.status_os || "").toUpperCase() === "EM ANDAMENTO");
+        const atrasadas = andamento.filter((o) => o.data_vencimento && o.data_vencimento < hoje)
+          .map((o) => ({ numero: o.numero_os ?? "", clienteId: o.cliente_id, vencimento: o.data_vencimento, recepcao: String(o.data_recepcao || "").slice(0, 10), dias: Math.round((Date.parse(hoje) - Date.parse(o.data_vencimento)) / 864e5) }))
+          .sort((a, b) => b.dias - a.dias);
+        const vencendo = andamento.filter((o) => o.data_vencimento && o.data_vencimento >= hoje && o.data_vencimento <= mais(3)).length;
+        const semVencimento = andamento.filter((o) => !o.data_vencimento).length;
+        const porMes: Record<string, { recebidas: number; concluidas: number; canceladas: number }> = {};
+        for (const o of vivas) {
+          const m = mesBR(o.data_recepcao);
+          if (!m) continue;
+          const x = (porMes[m] ??= { recebidas: 0, concluidas: 0, canceladas: 0 });
+          const st = String(o.status_os || "").toUpperCase();
+          x.recebidas++;
+          if (st.startsWith("CONCLU")) x.concluidas++;
+          if (st === "CANCELADA") x.canceladas++;
+        }
+        const env = envios.filter((e) => !e.deleted_at && e.ativo !== false && e.data_envio);
+        const prev = (e: any) => e.data_prevista || e.previsao_resultado || null;
+        const aguardando = env.filter((e) => !e.data_resultado);
+        const parceirosAtrasados = aguardando.filter((e) => prev(e) && prev(e) < hoje)
+          .map((e) => ({ provedor: e.provedor_nome ?? "", numero: e.numero_os ?? "", previsto: prev(e), dias: Math.round((Date.parse(hoje) - Date.parse(prev(e))) / 864e5) }))
+          .sort((a, b) => b.dias - a.dias);
+        const comResultado = env.filter((e) => e.data_resultado);
+        const porProvedor: Record<string, { envios: number; comResultado: number; noPrazo: number; diasSoma: number }> = {};
+        for (const e of env) {
+          const k = String(e.provedor_nome || "Outro").trim().toUpperCase();
+          const x = (porProvedor[k] ??= { envios: 0, comResultado: 0, noPrazo: 0, diasSoma: 0 });
+          x.envios++;
+          if (e.data_resultado) {
+            x.comResultado++;
+            x.diasSoma += Math.max(0, Math.round((Date.parse(e.data_resultado) - Date.parse(e.data_envio)) / 864e5));
+            if (!prev(e) || e.data_resultado <= prev(e)) x.noPrazo++;
+          }
+        }
+        const nomes = await nomesClientes(atrasadas.slice(0, 40).map((a) => a.clienteId));
+        return resp({
+          hoje, porMes,
+          os: { andamento: andamento.length, atrasadas: atrasadas.length, vencendo, semVencimento, lista: atrasadas.slice(0, 40).map(({ clienteId, ...r }) => ({ ...r, cliente: nomes[clienteId] ?? "" })) },
+          parceiros: {
+            aguardando: aguardando.length, atrasados: parceirosAtrasados.length, comResultado: comResultado.length,
+            lista: parceirosAtrasados.slice(0, 30),
+            porProvedor: Object.entries(porProvedor).map(([nome, x]) => ({ nome, envios: x.envios, comResultado: x.comResultado, noPrazo: x.noPrazo, mediaDias: x.comResultado ? Math.round((x.diasSoma / x.comResultado) * 10) / 10 : null })).sort((a, b) => b.envios - a.envios),
+          },
+        });
       }
 
       // Pesquisas de satisfação registradas no CRM.

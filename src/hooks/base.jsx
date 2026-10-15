@@ -1,22 +1,30 @@
-// O estado do Comercial num lugar só: dados próprios (ml-sync), números do
-// CRM (ml-comercial), colaboradores do RH e o mês escolhido. As telas leem
+// O estado do sistema num lugar só: o setor escolhido (Comercial ou
+// Laboratório), o que o usuário pode ver (Acessos), os dados do setor, os
+// números do CRM, os colaboradores do RH e o mês escolhido. As telas leem
 // daqui e gravam por aqui; depois de gravar, a lista local é atualizada com o
-// registro que o SERVIDOR devolveu.
+// registro que o SERVIDOR devolveu. Quem tranca é o servidor; aqui só se
+// esconde o que ele já recusa.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { carregarTudo, salvar, apagar, elencoRH } from "../services/dados.js";
+import { carregarTudo, salvar, apagar, elencoRH, quemSou } from "../services/dados.js";
+import { CHAVES, PAGINAS, SETORES, podeAcao } from "../../supabase/functions/ml-comercial/acessos.mjs";
 import { resumoCRM } from "../services/crm.js";
 import { mesAtual } from "../lib/format.js";
 import { configCompleta, naEquipeNoMes } from "../lib/calculos.js";
 
 const Ctx = createContext(null);
 
-const VAZIO = { equipe: [], config: [], ocorrencias: [], avaliacoes: [], feedbacks: [], estrategias: [], funcoes: [], pdi: [], treinamentos: [], reunioes: [], decisoes: [], objetivos: [], acoes: [], nps: [], destaque: [], apresentacoes: [], fotos: [] };
+const VAZIO = Object.fromEntries(CHAVES.map((c) => [c, []]));
+const K_SETOR = "gc_setor";
+const lerSetor = () => { try { return localStorage.getItem(K_SETOR) || ""; } catch { return ""; } };
+const guardarSetor = (s) => { try { localStorage.setItem(K_SETOR, s); } catch { /* sem armazenamento */ } };
 
 export function BaseProvider({ children }) {
   const [dados, setDados] = useState(VAZIO);
   const [resumo, setResumo] = useState(null);
   const [elenco, setElenco] = useState([]);
+  const [acesso, setAcesso] = useState(null);
+  const [setor, setSetorEstado] = useState(lerSetor);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
   const [erroCRM, setErroCRM] = useState("");
@@ -27,29 +35,47 @@ export function BaseProvider({ children }) {
   const recarregar = useCallback(async () => {
     setCarregando(true);
     setErro("");
-    const [d, r, e] = await Promise.allSettled([carregarTudo(), resumoCRM(36), elencoRH()]);
+    let eu;
+    try { eu = await quemSou(); } catch (e) {
+      setErro(e.status === 403 ? "Você ainda não tem acesso a este sistema. Peça a liberação à administração." : e.message || "Não consegui confirmar seu acesso.");
+      setCarregando(false);
+      return;
+    }
+    setAcesso(eu);
+    const permitidos = Object.keys(SETORES).filter((s) => eu.setores?.[s]?.length);
+    const alvo = permitidos.includes(setor) ? setor : permitidos[0];
+    if (alvo !== setor) { setSetorEstado(alvo); guardarSetor(alvo); return; } // recarrega pelo efeito
+    const querResumo = alvo === "comercial" && podeAcao({ setores: { comercial: eu.setores.comercial } }, "resumo");
+    const [d, r, e] = await Promise.allSettled([carregarTudo(alvo), querResumo ? resumoCRM(36) : Promise.resolve(null), elencoRH()]);
     if (d.status === "fulfilled") setDados({ ...VAZIO, ...d.value });
-    else setErro(d.reason?.message || "Não consegui carregar os dados do Comercial.");
+    else setErro(d.reason?.message || "Não consegui carregar os dados.");
     if (r.status === "fulfilled") { setResumo(r.value); setErroCRM(""); }
-    else setErroCRM(r.reason?.status === 404
-      ? "A função que lê o CRM (ml-comercial) ainda não foi publicada no Supabase. Os números do CRM aparecem assim que ela for ligada."
-      : r.reason?.message || "Não consegui ler o CRM agora.");
+    else setErroCRM(r.reason?.message || "Não consegui ler o CRM agora.");
     if (e.status === "fulfilled") setElenco(e.value);
     setCarregando(false);
-  }, []);
+  }, [setor]);
 
   useEffect(() => { recarregar(); }, [recarregar]);
 
-  const gravar = useCallback(async (chave, registro) => {
-    const salvo = await salvar(chave, registro);
-    setDados((d) => ({ ...d, [chave]: [...d[chave].filter((x) => x.id !== salvo.id), salvo] }));
-    return salvo;
+  const setSetor = useCallback((s) => {
+    if (!SETORES[s]) return;
+    guardarSetor(s);
+    setDados(VAZIO);
+    setResumo(null);
+    setCrmCache({});
+    setSetorEstado(s);
   }, []);
 
+  const gravar = useCallback(async (chave, registro) => {
+    const salvo = await salvar(setor, chave, registro);
+    setDados((d) => ({ ...d, [chave]: [...d[chave].filter((x) => x.id !== salvo.id), salvo] }));
+    return salvo;
+  }, [setor]);
+
   const remover = useCallback(async (chave, id) => {
-    await apagar(chave, id);
+    await apagar(setor, chave, id);
     setDados((d) => ({ ...d, [chave]: d[chave].filter((x) => x.id !== id) }));
-  }, []);
+  }, [setor]);
 
   const valor = useMemo(() => {
     const ordenar = (xs) => [...xs].sort((a, b) => (a.ordem ?? 99) - (b.ordem ?? 99) || String(a.nome).localeCompare(String(b.nome), "pt-BR"));
@@ -61,8 +87,11 @@ export function BaseProvider({ children }) {
     const ocorrenciasDe = (pessoaId, m = mes) => dados.ocorrencias.filter((o) => o.mes === m && o.pessoaId === pessoaId);
     const funcaoDe = (membro) => dados.funcoes.find((f) => f.id === membro?.funcaoId) || null;
     const nomeCRM = (id) => resumo?.pessoas?.[id]?.nome || (id ? "Usuário do CRM" : "Sem responsável");
-    return { dados, equipe, equipeAtual, config, resumo, elenco, carregando, erro, erroCRM, mes, setMes, recarregar, gravar, remover, ocorrenciasDe, funcaoDe, nomeCRM, crmCache, setCrmCache };
-  }, [dados, resumo, elenco, carregando, erro, erroCRM, mes, recarregar, gravar, remover, crmCache]);
+    const paginas = (PAGINAS[setor] || []).filter((p) => acesso?.setores?.[setor]?.includes(p.id));
+    const pode = (id) => paginas.some((p) => p.id === id);
+    const setoresPermitidos = Object.keys(SETORES).filter((s) => acesso?.setores?.[s]?.length);
+    return { dados, equipe, equipeAtual, config, resumo, elenco, carregando, erro, erroCRM, mes, setMes, recarregar, gravar, remover, ocorrenciasDe, funcaoDe, nomeCRM, crmCache, setCrmCache, setor, setSetor, acesso, paginas, pode, setoresPermitidos, nomeSetor: SETORES[setor]?.nome || "" };
+  }, [dados, resumo, elenco, carregando, erro, erroCRM, mes, recarregar, gravar, remover, crmCache, setor, setSetor, acesso]);
 
   return <Ctx.Provider value={valor}>{children}</Ctx.Provider>;
 }

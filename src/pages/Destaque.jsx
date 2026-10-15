@@ -13,7 +13,7 @@ import { getSessao } from "../lib/sessao.js";
 import { lerXlsx } from "../lib/xlsxLeve.js";
 import { importarPlanilha, norm } from "../lib/importarAvaliacoes.js";
 import { reduzirFoto } from "../lib/foto.js";
-import { salvarEm } from "../services/dados.js";
+import { importarVotacao } from "../services/dados.js";
 
 const nota1 = (x) => (x == null ? "—" : Number(x).toFixed(1).replace(".", ","));
 
@@ -585,7 +585,7 @@ function ImportarHistorico({ aoFechar, aoConcluir }) {
     try {
       let n = 0;
       for (const a of prev.lideranca) { await gravar("destaque", a); setGravando(`Liderança: ${++n} de ${prev.lideranca.length}`); }
-      for (const p of prev.pesquisas) { await salvarEm("rh_comercial_pesquisas", p); setGravando(`Votação da equipe de ${mesLongo(p.mes)}`); }
+      for (const p of prev.pesquisas) { await importarVotacao(p); setGravando(`Votação da equipe de ${mesLongo(p.mes)}`); }
       aoConcluir();
       aoFechar();
     } catch (ex) { setErro(ex.message); setGravando(""); }

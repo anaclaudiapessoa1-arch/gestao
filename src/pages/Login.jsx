@@ -29,7 +29,7 @@ export default function Login() {
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, textAlign: "center", marginBottom: 22 }}>
           <span className="marca-icone" style={{ width: 52, height: 52, borderRadius: 16 }}><IcGrafico size={26} /></span>
           <div>
-            <h1 style={{ fontSize: 22 }}>Minas<span style={{ color: "var(--marca)" }}>Lab</span> · Comercial</h1>
+            <h1 style={{ fontSize: 22 }}>Minas<span style={{ color: "var(--marca)" }}>Lab</span> · Gestão</h1>
             <div className="suave peq">Entre com o mesmo usuário do Painel de Gestão</div>
           </div>
         </div>

@@ -118,7 +118,8 @@ export default function Equipe() {
 }
 
 function EditorPessoa({ inicial, aoFechar }) {
-  const { resumo, elenco, gravar, dados } = useBase();
+  const { resumo, elenco, gravar, dados, setor } = useBase();
+  const com = setor === "comercial";
   const [m, setM] = useState({ nome: "", funcao: "", funcaoId: "", crmProfileId: "", rhPessoaId: "", ...inicial, metas: { ...(inicial.metas || {}) } });
   const funcoes = [...dados.funcoes].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
   const escolherFuncao = (id) => {
@@ -154,7 +155,7 @@ function EditorPessoa({ inicial, aoFechar }) {
           </select>
           {funcoes.length === 0 && <span className="suave peq">Cadastre as funções em Gestão › Funções e cargos.</span>}
         </div>
-        <div className="campo">
+        {com && <div className="campo">
           <label htmlFor="p-crm">Usuário no CRM (de onde vêm os números)</label>
           <select id="p-crm" className="entrada" value={m.crmProfileId || ""} onChange={(e) => {
             const id = e.target.value;
@@ -163,7 +164,7 @@ function EditorPessoa({ inicial, aoFechar }) {
             <option value="">— sem vínculo —</option>
             {perfis.map((p) => <option key={p.id} value={p.id}>{p.nome}{p.ativo ? "" : " (inativo)"}</option>)}
           </select>
-        </div>
+        </div>}
         <div className="campo">
           <label htmlFor="p-rh">Cadastro no RH</label>
           <select id="p-rh" className="entrada" value={m.rhPessoaId || ""} onChange={(e) => setM({ ...m, rhPessoaId: e.target.value })}>
@@ -177,6 +178,7 @@ function EditorPessoa({ inicial, aoFechar }) {
           <span className="suave peq">Em branco = aparece em todos os meses. A saída é registrada no botão Desligar; a pessoa deixa de aparecer a partir do mês do desligamento.</span>
         </div>
         {m.funcaoId && dados.funcoes.find((x) => x.id === m.funcaoId) && <MetasFuncao f={dados.funcoes.find((x) => x.id === m.funcaoId)} titulo="Metas da função (vêm da descrição de cargo)" />}
+        {com && <>
         <div className="rotulo" style={{ marginTop: 4 }}>Metas medidas pelo CRM (só para quem envia propostas; deixe em branco o que não se aplica)</div>
         {sugestao != null && <div className="suave peq">Média dos últimos 6 meses: {Math.round(sugestao)} propostas. Sugestão de meta (+10%): {Math.round(sugestao * 1.1)}.</div>}
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
@@ -184,6 +186,7 @@ function EditorPessoa({ inicial, aoFechar }) {
           <div className="campo"><label htmlFor="p-m2">Aprovação mín. (%)</label><input id="p-m2" className="entrada num" type="number" min="0" max="100" value={m.metas.aprovacao ?? ""} onChange={setMeta("aprovacao")} /></div>
           <div className="campo"><label htmlFor="p-m3">Ligações/dia</label><input id="p-m3" className="entrada num" type="number" min="0" value={m.metas.ligacoes ?? ""} onChange={setMeta("ligacoes")} /></div>
         </div>
+        </>}
         {erro && <div className="aviso ruim">{erro}</div>}
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
           <button type="button" className="btn claro" onClick={aoFechar}>Cancelar</button>

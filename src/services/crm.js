@@ -12,3 +12,4 @@ export const carteiraCRM = () => chamar("carteira");
 export const licitacoesCRM = () => chamar("licitacoes");
 export const npsCRM = () => chamar("nps");
 export const setoresCRM = (mes) => chamar("setores", { mes });
+export const labPainelCRM = () => chamar("labPainel");

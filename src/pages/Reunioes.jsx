@@ -45,8 +45,10 @@ function Rituais() {
   const { equipe, mes, dados } = base;
   const [tipo, setTipo] = useState("rapida");
   const [pessoaId, setPessoaId] = useState(equipe[0]?.id || "");
-  const ck = useCRM("cockpit", cockpitCRM);
-  const cart = useCRM("carteira", carteiraCRM);
+  // No Laboratório não há números comerciais do CRM (o servidor recusa).
+  const com = base.setor === "comercial";
+  const ck = useCRM(com ? "cockpit" : "sem-cockpit", com ? cockpitCRM : async () => null);
+  const cart = useCRM(com ? "carteira" : "sem-carteira", com ? carteiraCRM : async () => null);
   const pessoa = equipe.find((p) => p.id === pessoaId) || equipe[0];
 
   const ref = tipo === "rapida" ? segundaDaSemana(hojeBR()) : tipo === "1a1" ? `${pessoa?.id}_${mes}` : tipo === "fechamento" ? mes : trimestreDe(mes);

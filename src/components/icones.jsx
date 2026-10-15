@@ -26,3 +26,6 @@ export const IcRecarregar = I(<><path d="M20 11a8 8 0 1 0-2.3 5.7" /><path d="M2
 export const IcBalanca = I(<><path d="M12 3v18" /><path d="M5 21h14" /><path d="M4 7h16" /><path d="m4 7-3 7a4 4 0 0 0 6 0z" /><path d="m20 7-3 7a4 4 0 0 0 6 0z" /></>);
 export const IcPasta = I(<><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><path d="M3 13h18" /></>);
 export const IcTrofeu = I(<><path d="M8 4h8v5a4 4 0 0 1-8 0z" /><path d="M8 6H5a3 3 0 0 0 3 4" /><path d="M16 6h3a3 3 0 0 1-3 4" /><path d="M12 13v4" /><path d="M8 21h8" /><path d="M9 17h6v4H9z" /></>);
+export const IcFrasco = I(<><path d="M9 3h6" /><path d="M10 3v6L4.5 18.5A1.7 1.7 0 0 0 6 21h12a1.7 1.7 0 0 0 1.5-2.5L14 9V3" /><path d="M7 15h10" /></>);
+export const IcCadeado = I(<><rect x="4" y="10" width="16" height="11" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></>);
+export const IcPulso = I(<path d="M3 12h4l2-6 4 12 2-6h6" />);

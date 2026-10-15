@@ -1,46 +1,27 @@
-// Dados próprios do Comercial, guardados pela porta do painel (ml-sync) nas
-// coleções rh_comercial_*. O prefixo rh_ faz o servidor restringir tudo à
-// direção — leitura e escrita — sem nenhuma mudança no backend.
+// Dados próprios do sistema de gestão (Comercial e Laboratório). Tudo passa
+// pelo servidor do Comercial (ml-comercial), que confere em CADA leitura e
+// gravação se a página está liberada para o usuário em Acessos. Os dados ficam
+// nas coleções rh_comercial_* e rh_lab_* (ver acessos.mjs).
 //
-// Regras herdadas do ml-sync: exclusão é lápide (nunca DELETE), e toda
+// Regras herdadas do painel: exclusão é lápide (nunca DELETE), e toda
 // gravação devolve o registro como ficou (conferimos o efeito, não a falta
 // de erro).
 
-import { SYNC } from "../lib/api.js";
+import { COMERCIAL } from "../lib/api.js";
 import { comCracha } from "../lib/sessao.js";
 import { novoId } from "../lib/format.js";
+import { CHAVES } from "../../supabase/functions/ml-comercial/acessos.mjs";
 
-export const COLECOES = {
-  equipe: "rh_comercial_equipe",
-  config: "rh_comercial_config",
-  ocorrencias: "rh_comercial_ocorrencias",
-  avaliacoes: "rh_comercial_avaliacoes",
-  feedbacks: "rh_comercial_feedbacks",
-  estrategias: "rh_comercial_estrategias",
-  funcoes: "rh_comercial_funcoes",
-  pdi: "rh_comercial_pdi",
-  treinamentos: "rh_comercial_treinamentos",
-  reunioes: "rh_comercial_reunioes",
-  decisoes: "rh_comercial_decisoes",
-  objetivos: "rh_comercial_objetivos",
-  acoes: "rh_comercial_acoes",
-  nps: "rh_comercial_nps",
-  destaque: "rh_comercial_destaque",          // avaliação da liderança (Destaque do Mês)
-  apresentacoes: "rh_comercial_apresentacoes", // apresentações editáveis (estúdio)
-  fotos: "rh_comercial_fotos",                 // fotos dos colaboradores (ranking e apresentação)
-};
+const chamar = (action, corpo = {}) => comCracha(COMERCIAL, { action, ...corpo });
 
-const chamar = (action, corpo = {}) => comCracha(SYNC, { action, ...corpo });
+/** Quem sou eu e o que posso ver: { usuario, admin, setores: {setor: [páginas]} }. */
+export const quemSou = () => chamar("eu");
 
-/** Lê todas as coleções do Comercial numa viagem só. */
-export async function carregarTudo() {
-  const nomes = Object.values(COLECOES);
-  const r = await chamar("listarVarias", { colecoes: nomes });
-  if (r.recusadas?.length) {
-    throw new Error("O servidor recusou os dados do Comercial para esta conta. O acesso é só da direção.");
-  }
+/** Lê todas as coleções do setor numa viagem só (as não liberadas vêm vazias). */
+export async function carregarTudo(setor) {
+  const r = await chamar("dadosCarregar", { setor });
   const out = {};
-  for (const [chave, nome] of Object.entries(COLECOES)) out[chave] = r.colecoes?.[nome] ?? [];
+  for (const chave of CHAVES) out[chave] = r.colecoes?.[chave] ?? [];
   return out;
 }
 
@@ -48,32 +29,35 @@ export async function carregarTudo() {
 const NOME_MAIUSCULO = new Set(["equipe", "destaque", "fotos"]);
 export const nomeMaiusculo = (n) => String(n ?? "").replace(/\s+/g, " ").trim().toLocaleUpperCase("pt-BR");
 
-export async function salvar(chave, registro) {
-  const colecao = COLECOES[chave];
+export async function salvar(setor, chave, registro) {
   const reg = { ...registro };
   if (NOME_MAIUSCULO.has(chave) && typeof reg.nome === "string") reg.nome = nomeMaiusculo(reg.nome);
   if (!reg.id) reg.id = novoId(chave.slice(0, 3));
   if (!reg.criadoEm) reg.criadoEm = new Date().toISOString();
-  const r = await chamar("upsert", { colecao, registro: reg });
+  const r = await chamar("dadosGravar", { setor, chave, registro: reg });
   if (!r?.registro?.id) throw new Error("O servidor não confirmou a gravação. Recarregue e confira.");
   return r.registro;
 }
 
-export async function apagar(chave, id) {
-  const r = await chamar("delete", { colecao: COLECOES[chave], id });
+export async function apagar(setor, chave, id) {
+  const r = await chamar("dadosApagar", { setor, chave, id });
   if (!r?.ok) throw new Error("O servidor não confirmou a exclusão.");
   return true;
 }
 
-/** Colaboradores ativos do RH: só id, nome e apelido (porta estreita do painel). */
+/** Colaboradores ativos do RH: só id, nome e apelido (porta estreita). */
 export async function elencoRH() {
   const r = await chamar("elenco");
   return r?.pessoas ?? [];
 }
 
-/** Grava direto numa coleção fora do carregamento padrão (ex.: votações importadas). */
-export async function salvarEm(colecao, registro) {
-  const r = await chamar("upsert", { colecao, registro });
+/** Grava uma votação histórica importada da planilha (Destaque do mês). */
+export async function importarVotacao(registro) {
+  const r = await chamar("dadosImportarVotacao", { registro });
   if (!r?.registro?.id) throw new Error("O servidor não confirmou a gravação. Recarregue e confira.");
   return r.registro;
 }
+
+// ---- Acessos (só administração) ----
+export const listarAcessos = () => chamar("acessosListar");
+export const gravarAcesso = (usuario, setores) => chamar("acessosGravar", { usuario, setores });

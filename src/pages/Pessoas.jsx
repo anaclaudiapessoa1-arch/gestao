@@ -23,7 +23,7 @@ export function SeletorPessoa({ atual, tela }) {
 }
 
 export default function Pessoas({ param }) {
-  const { equipe, resumo, mes, ocorrenciasDe, dados, gravar, remover, funcaoDe } = useBase();
+  const { equipe, resumo, mes, ocorrenciasDe, dados, gravar, remover, funcaoDe, setor } = useBase();
   const membro = equipe.find((m) => m.id === param) || equipe[0];
   const [texto, setTexto] = useState("");
   const [comb, setComb] = useState("");
@@ -94,11 +94,11 @@ export default function Pessoas({ param }) {
           <div style={{ marginTop: 6 }}><Pontos lista={lista} /></div>
           {funcaoDe(membro) && <div style={{ marginTop: 14 }}><MetasFuncao f={funcaoDe(membro)} titulo={`Metas de ${funcaoDe(membro).nome} (conferir no mês)`} /></div>}
         </Card>
-        <Card>
+        {setor === "comercial" && <Card>
           <h3>Evolução de propostas</h3>
           <div className="suave peq" style={{ marginTop: 4 }}>{metas.propostas ? `Linha tracejada: meta de ${metas.propostas} por mês` : "Sem meta definida"}</div>
           <GraficoMeses serie={serie(resumo, membro, mes, 9)} mesDestaque={mes} meta={metas.propostas} rotuloMes={mesCurto} />
-        </Card>
+        </Card>}
       </div>}
 
       {aba === "feedback" && <div className="grade grade-2">

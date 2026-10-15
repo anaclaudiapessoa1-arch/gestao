@@ -1,7 +1,8 @@
-// Sessão do Comercial. O login é o mesmo do painel MinasLab (ml-sync, ação
-// "entrar"): mesmas contas, mesmo crachá de 12h. Esconder telas aqui é
-// conforto; quem tranca de verdade é o servidor, que confere o crachá e o
-// papel em toda chamada.
+// Sessão do sistema de gestão (Comercial e Laboratório). O login é o mesmo do
+// painel MinasLab (ml-sync, ação "entrar"): mesmas contas, mesmo crachá de
+// 12h. Esconder telas aqui é conforto; quem tranca de verdade é o servidor
+// (ml-comercial), que confere o crachá e as páginas liberadas em Acessos em
+// toda chamada.
 
 import { SYNC } from "./api.js";
 
@@ -78,11 +79,8 @@ export async function login(usuario, senha) {
   }
   const corpo = await resp.json().catch(() => null);
   if (!resp.ok) throw new Error(corpo?.erro || mensagemDoStatus(resp.status));
-  // O Comercial é da gestão: a porta do servidor já recusa os dados a quem
-  // não é direção; aqui só evitamos abrir uma casca vazia.
-  if (corpo.papel !== "direcao") {
-    throw new Error("O Comercial é restrito à direção. Peça acesso na tela de Acessos do painel.");
-  }
+  // Quem pode ver o quê é decidido pelo servidor (Acessos), não pelo papel do
+  // painel: sem liberação, a primeira leitura volta recusada e a tela avisa.
   gravar(K_TOKEN, corpo.token);
   gravar(K_SESSAO, JSON.stringify({ usuario: corpo.usuario, nome: corpo.nome, papel: corpo.papel, visto: Date.now() }));
   avisar();

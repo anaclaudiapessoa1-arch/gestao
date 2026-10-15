@@ -23,6 +23,10 @@ import Funcoes from "./pages/Funcoes.jsx";
 import Votar from "./pages/Votar.jsx";
 import Liderar from "./pages/Liderar.jsx";
 import Destaque from "./pages/Destaque.jsx";
+import Laboratorio from "./pages/Laboratorio.jsx";
+import NaoConformidades from "./pages/NaoConformidades.jsx";
+import Produtividade from "./pages/Produtividade.jsx";
+import Acessos from "./pages/Acessos.jsx";
 
 const TELAS = {
   cockpit: Cockpit, visao: VisaoMes, funil: Funil, dado: QualidadeDado,
@@ -30,22 +34,28 @@ const TELAS = {
   carteira: Carteira, satisfacao: Satisfacao, licitacoes: Licitacoes,
   estrategias: Estrategias, decisoes: Decisoes, funcoes: Funcoes, equipe: Equipe,
   reunioes: Reunioes, treinamentos: Treinamentos, destaque: Destaque,
+  lab: Laboratorio, ncs: NaoConformidades, produtividade: Produtividade, acessos: Acessos,
 };
 
 function Telas() {
   const { tela, param } = useRota();
-  const { carregando, erro, recarregar } = useBase();
-  const Tela = TELAS[tela] || Cockpit;
+  const { carregando, erro, recarregar, pode, paginas, acesso, nomeSetor } = useBase();
+  // Só abre o que está liberado no setor; senão, a primeira página liberada.
+  const liberada = (tela === "acessos" && acesso?.admin) || (TELAS[tela] && pode(tela));
+  const id = liberada ? tela : paginas[0]?.id || (acesso?.admin ? "acessos" : "");
+  const Tela = TELAS[id] || null;
   return (
-    <Layout tela={TELAS[tela] ? tela : "cockpit"}>
+    <Layout tela={id}>
       {erro ? (
         <div className="aviso ruim">
           {erro} <button type="button" className="btn mini claro" style={{ marginLeft: 8 }} onClick={recarregar}>Tentar de novo</button>
         </div>
       ) : carregando ? (
-        <div className="carregando">Carregando os dados do Comercial…</div>
-      ) : (
+        <div className="carregando">Carregando os dados{nomeSetor ? ` do ${nomeSetor}` : ""}…</div>
+      ) : Tela ? (
         <Tela param={param} />
+      ) : (
+        <div className="aviso alerta">Nenhuma página liberada para você neste setor. Peça a liberação à administração.</div>
       )}
     </Layout>
   );

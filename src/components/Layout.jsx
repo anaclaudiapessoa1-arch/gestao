@@ -6,38 +6,19 @@ import { mesAtual, mesCurto } from "../lib/format.js";
 import {
   IcGrafico, IcLupa, IcBussola, IcFunil, IcPessoas, IcMedalha, IcAviso, IcAlvo, IcEngrenagem,
   IcCarteira, IcEstrela, IcMartelo, IcApresentacao, IcLivro, IcMenu, IcBalanca, IcPasta, IcTrofeu,
+  IcFrasco, IcCadeado, IcPulso,
 } from "./icones.jsx";
 
-// O menu do sistema inteiro, nos cinco blocos da especificação.
-export const MENU = [
-  { grupo: "Resultado", itens: [
-    { id: "cockpit", nome: "Cockpit do dia", Ic: IcBussola },
-    { id: "visao", nome: "Visão do mês", Ic: IcGrafico },
-    { id: "funil", nome: "Funil", Ic: IcFunil },
-    { id: "dado", nome: "Qualidade do dado", Ic: IcLupa },
-  ] },
-  { grupo: "Pessoas", itens: [
-    { id: "pessoas", nome: "Pessoas e feedback", Ic: IcPessoas },
-    { id: "avaliacao", nome: "Avaliação e bônus", Ic: IcMedalha },
-    { id: "destaque", nome: "Destaque do mês", Ic: IcTrofeu },
-    { id: "ocorrencias", nome: "Ocorrências", Ic: IcAviso },
-  ] },
-  { grupo: "Clientes", itens: [
-    { id: "carteira", nome: "Carteira", Ic: IcCarteira },
-    { id: "satisfacao", nome: "Satisfação", Ic: IcEstrela },
-    { id: "licitacoes", nome: "Licitações", Ic: IcMartelo },
-  ] },
-  { grupo: "Gestão", itens: [
-    { id: "estrategias", nome: "Estratégias e objetivos", Ic: IcAlvo },
-    { id: "decisoes", nome: "Decisões", Ic: IcBalanca },
-    { id: "funcoes", nome: "Funções e cargos", Ic: IcPasta },
-    { id: "equipe", nome: "Equipe e metas", Ic: IcEngrenagem },
-  ] },
-  { grupo: "Desenvolvimento", itens: [
-    { id: "reunioes", nome: "Reuniões e apresentações", Ic: IcApresentacao },
-    { id: "treinamentos", nome: "Treinamentos", Ic: IcLivro },
-  ] },
-];
+// Ícone de cada página. O menu sai das páginas LIBERADAS para o usuário no
+// setor escolhido (acessos.mjs), na ordem e nos grupos de lá.
+export const ICONES = {
+  cockpit: IcBussola, visao: IcGrafico, funil: IcFunil, dado: IcLupa,
+  pessoas: IcPessoas, avaliacao: IcMedalha, destaque: IcTrofeu, ocorrencias: IcAviso,
+  carteira: IcCarteira, satisfacao: IcEstrela, licitacoes: IcMartelo,
+  estrategias: IcAlvo, decisoes: IcBalanca, funcoes: IcPasta, equipe: IcEngrenagem,
+  reunioes: IcApresentacao, treinamentos: IcLivro,
+  lab: IcFrasco, ncs: IcAviso, produtividade: IcPulso, acessos: IcCadeado,
+};
 
 // Mês a mês, ano a ano: o mês atual sai da data de hoje, então novembro,
 // dezembro e os anos seguintes aparecem sozinhos. Meses futuros ficam apagados.
@@ -72,35 +53,48 @@ export function SeletorMes() {
 export default function Layout({ tela, children }) {
   const [aberto, setAberto] = useState(false);
   const sessao = getSessao();
-  const { erroCRM } = useBase();
+  const { erroCRM, paginas, acesso, setor, setSetor, setoresPermitidos, nomeSetor } = useBase();
   const ir = (id) => { setAberto(false); navegar(id); };
+  const grupos = [];
+  for (const p of paginas) {
+    let g = grupos.find((x) => x.grupo === p.grupo);
+    if (!g) grupos.push((g = { grupo: p.grupo, itens: [] }));
+    g.itens.push(p);
+  }
+  if (acesso?.admin) grupos.push({ grupo: "Administração", itens: [{ id: "acessos", nome: "Acessos" }] });
 
   return (
     <div className="casca">
       <div className="topo-movel">
         <button type="button" aria-label="Abrir menu" onClick={() => setAberto(true)}><IcMenu size={22} /></button>
-        <b style={{ fontFamily: "Poppins" }}>Comercial</b>
+        <b style={{ fontFamily: "Poppins" }}>{nomeSetor || "Gestão"}</b>
       </div>
       {aberto && <div className="modal-fundo" style={{ zIndex: 25, background: "rgba(0,0,0,.3)" }} onClick={() => setAberto(false)} />}
-      <nav className={`menu${aberto ? " aberto" : ""}`} aria-label="Comercial">
+      <nav className={`menu${aberto ? " aberto" : ""}`} aria-label={nomeSetor || "Gestão"}>
         <div className="logo">
-          <span className="marca-icone"><IcGrafico size={20} /></span>
-          <span><b>Comercial</b><span>MinasLab · Gestão do setor</span></span>
+          <span className="marca-icone">{setor === "laboratorio" ? <IcFrasco size={20} /> : <IcGrafico size={20} />}</span>
+          <span><b>{nomeSetor || "Gestão"}</b><span>MinasLab · Gestão do setor</span></span>
         </div>
-        {MENU.map((g) => (
+        {setoresPermitidos.length > 1 && (
+          <div className="menu-setores" role="group" aria-label="Setor">
+            {setoresPermitidos.map((s) => (
+              <button key={s} type="button" className={s === setor ? "ativo" : ""} aria-pressed={s === setor} onClick={() => { setSetor(s); setAberto(false); }}>
+                {s === "laboratorio" ? "Laboratório" : "Comercial"}
+              </button>
+            ))}
+          </div>
+        )}
+        {grupos.map((g) => (
           <div key={g.grupo}>
             <div className="menu-grupo">{g.grupo}</div>
-            {g.itens.map(({ id, nome, Ic, fase }) => (
-              fase ? (
-                <div key={id} className="menu-item" aria-disabled="true" title={`Chega na ${fase.toLowerCase()} do roteiro`}>
-                  <Ic /> {nome} <span className="fase">{fase}</span>
-                </div>
-              ) : (
+            {g.itens.map(({ id, nome }) => {
+              const Ic = ICONES[id] || IcPasta;
+              return (
                 <button key={id} type="button" className={`menu-item${tela === id ? " ativo" : ""}`} aria-current={tela === id ? "page" : undefined} onClick={() => ir(id)}>
                   <Ic /> {nome}
                 </button>
-              )
-            ))}
+              );
+            })}
           </div>
         ))}
         <div className="menu-rodape">

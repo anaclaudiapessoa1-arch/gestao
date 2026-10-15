@@ -544,3 +544,17 @@ tr:last-child td { border-bottom: 0; }
 .dk-imagem-leg { font-size: 1.2cqw; color: #4b6468; text-align: center; }
 .mini-slide.arrastando { opacity: .4; }
 @media print { .dk-gr-c, .dk-gr-b, .dk-gr-pizza-leg i { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+
+/* ---------- seletor de setor no menu ---------- */
+.menu-setores { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin: 4px 14px 10px; padding: 4px; background: rgba(255,255,255,.08); border-radius: 10px; }
+.menu-setores button { border: 0; background: transparent; color: #c9dcdc; font: 600 12.5px Inter, sans-serif; padding: 7px 6px; border-radius: 7px; cursor: pointer; }
+.menu-setores button.ativo { background: #fff; color: var(--tinta); }
+.barra-linha { height: 10px; background: var(--linha-fraca); border-radius: 99px; overflow: hidden; min-width: 80px; }
+.barra-linha > div { height: 100%; background: var(--marca); border-radius: 99px; }
+.lab-setor { display: grid; grid-template-columns: 170px 1fr 70px; gap: 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--linha-fraca); }
+.lab-setor > div:first-child { display: flex; flex-direction: column; }
+.lab-barras { display: flex; flex-direction: column; gap: 3px; padding-right: 40px; }
+.lab-barras > div { position: relative; height: 10px; min-width: 3px; background: var(--marca-200); border-radius: 4px; }
+.lab-barras > div.atual { height: 14px; background: var(--marca); }
+.lab-barras em { position: absolute; left: calc(100% + 6px); top: 50%; transform: translateY(-50%); font-style: normal; font-size: 12px; font-weight: 600; }
+@media (max-width: 560px) { .lab-setor { grid-template-columns: 1fr; } }
