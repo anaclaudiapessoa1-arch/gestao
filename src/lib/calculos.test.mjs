@@ -123,3 +123,12 @@ test("metas da função saem dos indicadores da descrição de cargo", async () 
   const m = metasDaFuncao({ kpis: "Coletas no prazo — coletas na data agendada — 95% ou mais\nAmostras perdidas — ocorrências no mês — zero" });
   assert.deepEqual(m.map((x) => [x.indicador, x.meta]), [["Coletas no prazo", "95% ou mais"], ["Amostras perdidas", "zero"]]);
 });
+
+test("avaliação: função sem propostas (metas zeradas) fecha só com técnicos e comportamentais", () => {
+  const notas = { org: 9, com: 9, atd: 9, iso: 9, pro: 10, eq: 10, resp: 10, qual: 8 };
+  const a = avaliar({ resumo, membro: { crmProfileId: "pessoaA", metas: { propostas: 0, aprovacao: 0, ligacoes: 0 } }, mes: "2026-09", notas });
+  assert.equal(a.completa, true);
+  assert.equal(a.pendencias.length, 0);
+  assert.ok(a.auto.every((c) => c.naoAplica));
+  assert.notEqual(a.bonus, null);
+});

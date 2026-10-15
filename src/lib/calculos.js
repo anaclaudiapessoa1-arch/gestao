@@ -192,7 +192,14 @@ export function avaliar({ resumo, membro, mes, notas = {}, nOcorrencias = 0, con
   const metas = metasDe(membro);
   const r = realizado(resumo, membro, mes);
 
-  const auto = [
+  // Função que não envia propostas (ex.: coletor): metas de propostas e de
+  // aprovação ZERADAS de propósito = a parte automática não se aplica e não
+  // trava a avaliação. Meta em branco (não cadastrada) continua pendente.
+  const aplicaMetas = !(numero(metas.propostas) === 0 && numero(metas.aprovacao) === 0);
+  const auto = !aplicaMetas ? [
+    { id: "vol", nome: "Volume de propostas", desc: "não se aplica: a função não envia propostas", nota: null, naoAplica: true },
+    { id: "aprov", nome: "Taxa de aprovação", desc: "não se aplica: a função não envia propostas", nota: null, naoAplica: true },
+  ] : [
     {
       id: "vol", nome: "Volume de propostas",
       desc: metas.propostas ? `${r.enviadas} de ${metas.propostas} no mês` : "sem meta definida",
@@ -225,7 +232,7 @@ export function avaliar({ resumo, membro, mes, notas = {}, nOcorrencias = 0, con
   const final = base == null ? null : Math.max(0, base - desconto);
 
   const faltamManuais = [...tec, ...comp].filter((c) => c.nota == null).length;
-  const faltamMetas = auto.filter((c) => c.nota == null).length;
+  const faltamMetas = auto.filter((c) => c.nota == null && !c.naoAplica).length;
   const completa = faltamManuais === 0 && faltamMetas === 0;
 
   let faixa = { rotulo: "Preencha os critérios", tom: "neutro" };
