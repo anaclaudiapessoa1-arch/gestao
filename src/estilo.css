@@ -602,3 +602,8 @@ tr:last-child td { border-bottom: 0; }
 .dk-lab-linha em { font-style: normal; font-weight: 600; color: #1f3a4d; white-space: nowrap; }
 .dk-lab-linha em.desce { color: #dc2626; }
 .dk-lab-nota { font-size: 1cqw; color: #6b7c80; }
+
+/* exportação para PowerPoint: os slides de impressão ficam montados fora da tela */
+.impressao.exportando { display: block !important; position: fixed; left: -20000px; top: 0; width: 1280px; }
+.impressao.exportando .slide-impresso { margin-bottom: 20px; }
+.impressao.exportando .dk-slide { border-radius: 0; border: 0; }

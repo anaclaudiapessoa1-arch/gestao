@@ -578,9 +578,9 @@ export function Apresentador({ slides, ctx, i, setI, notas = true }) {
 }
 
 /** Cópia para impressão/PDF: todos os slides, um por página (só aparece ao imprimir). */
-export function ImpressaoDeck({ slides, ctx }) {
+export function ImpressaoDeck({ slides, ctx, refEl }) {
   return (
-    <div className="impressao" aria-hidden="true">
+    <div className="impressao" aria-hidden="true" ref={refEl}>
       {slides.map((s, k) => <div key={s.id || k} className="slide-impresso dk-impresso"><SlideML s={s} ctx={ctx} n={k + 1} total={slides.length} /></div>)}
     </div>
   );

@@ -8,6 +8,7 @@ import { resumoNcs, resumoProdutividade } from "../lib/labResumo.js";
 import { Card, Chip, Modal, Paginacao, usePaginacao } from "./ui.jsx";
 import { SlideML, Apresentador, ImpressaoDeck, nomeLayout } from "./Deck.jsx";
 import { CartaoAta } from "./AtaDocumento.jsx";
+import { baixarPptx } from "../lib/deckPptx.js";
 import { MODELOS, LAYOUTS, ROTULOS_CAMPOS, modeloPorId, slidesDoModelo, slideEmBranco, preencher } from "../lib/modelosApresentacao.js";
 import { usePesquisas, rankingDoMes, pesosDestaque } from "../pages/Destaque.jsx";
 import { podio } from "../lib/destaque.js";
@@ -182,6 +183,15 @@ function Editor({ deck: inicial, aoVoltar }) {
   }, [deck]);
   useEffect(() => () => { salvarAgora(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const voltar = () => { salvarAgora(); aoVoltar(); };
+  const refImpressao = useRef(null);
+  const [pptx, setPptx] = useState("");
+  const baixarPowerPoint = async () => {
+    setPptx("Preparando…");
+    try {
+      await baixarPptx({ titulo: deck.titulo, slides: visiveis, container: refImpressao.current, aoProgresso: (i, n) => setPptx(`Slide ${i} de ${n}…`) });
+      setPptx("");
+    } catch (e) { setPptx(""); window.alert(e.message || "Não consegui gerar o PowerPoint."); }
+  };
 
   const mudarSlide = (campos) => setDeck((d) => ({ ...d, slides: d.slides.map((x, k) => (k === sel ? { ...x, ...campos } : x)) }));
   const trocarSlides = (sl, novoSel) => { setDeck({ ...deck, slides: sl }); setSel(novoSel); };
@@ -225,6 +235,7 @@ function Editor({ deck: inicial, aoVoltar }) {
             <button type="button" role="tab" aria-selected={modo === "apresentar"} className={`pilula${modo === "apresentar" ? " ativa" : ""}`} onClick={() => setModo("apresentar")}>Ver como apresentação</button>
           </div>
           <button type="button" className="btn claro" onClick={() => window.print()}>PDF / imprimir</button>
+          <button type="button" className="btn claro" onClick={baixarPowerPoint} disabled={!!pptx}>{pptx || "Baixar PowerPoint"}</button>
           <button type="button" className="btn" onClick={apresentar}>Apresentar</button>
         </div>
       </div>
@@ -276,7 +287,7 @@ function Editor({ deck: inicial, aoVoltar }) {
 
       {(deck.categoria === "reuniao" || deck.slides.some((x) => x.layout === "compromissos")) && <AtaDeck deck={deck} aoMudar={(ata) => setDeck((d) => ({ ...d, ata }))} />}
       {deck.categoria === "reuniao" && <CartaoAta deck={deck} ctx={ctx} aoMudar={(ataDoc) => setDeck((d) => ({ ...d, ataDoc }))} />}
-      <ImpressaoDeck slides={visiveis} ctx={ctx} />
+      <ImpressaoDeck slides={visiveis} ctx={ctx} refEl={refImpressao} />
     </div>
   );
 }
