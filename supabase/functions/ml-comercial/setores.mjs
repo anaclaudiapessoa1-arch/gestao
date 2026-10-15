@@ -25,8 +25,9 @@ const vazio = () => Object.fromEntries(SETORES.map((s) => [s, { amostras: 0, ens
 
 /**
  * amostras: [{id, mes, matriz}], ensaios: [{amostra_id, rotulo, tipo}].
- * Devolve { [mes]: { total, porSetor: {setor: {amostras, ensaios}}, porMatriz: {matriz: n} } }.
+ * Devolve { [mes]: { total, casa, ensaios, porSetor: {setor: {amostras, ensaios}}, porMatriz: {matriz: n} } }.
  * Uma amostra conta em cada setor onde tem ao menos um ensaio; o total conta cada amostra uma vez.
+ * `casa` = amostras com ao menos um ensaio feito na MinasLab (fora os parceiros).
  */
 export function somarSetores(amostras, ensaios) {
   const mesDe = new Map(amostras.map((a) => [a.id, a]));
@@ -34,7 +35,7 @@ export function somarSetores(amostras, ensaios) {
   const vistos = new Set();
   for (const a of amostras) {
     if (!a.mes) continue;
-    const m = (out[a.mes] ??= { total: 0, ensaios: 0, porSetor: vazio(), porMatriz: {} });
+    const m = (out[a.mes] ??= { total: 0, casa: 0, ensaios: 0, porSetor: vazio(), porMatriz: {} });
     m.total += 1;
     const mz = a.matriz || "Outros";
     m.porMatriz[mz] = (m.porMatriz[mz] || 0) + 1;
@@ -48,6 +49,7 @@ export function somarSetores(amostras, ensaios) {
     m.porSetor[s].ensaios += 1;
     const k = `${a.id}|${s}`;
     if (!vistos.has(k)) { vistos.add(k); m.porSetor[s].amostras += 1; }
+    if (s !== "Parceiros" && !vistos.has(`${a.id}|casa`)) { vistos.add(`${a.id}|casa`); m.casa += 1; }
   }
   return out;
 }

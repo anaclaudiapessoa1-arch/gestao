@@ -26,3 +26,18 @@ test("soma amostras (uma vez por setor) e ensaios por mês", () => {
   assert.deepEqual(r["2026-09"].porMatriz, { "Água": 1, "Alimento": 1 });
   assert.equal(r["2026-08"].total, 1);
 });
+
+test("amostras da MinasLab: só as que têm ensaio feito na casa", () => {
+  const r = somarSetores(
+    [{ id: "a", mes: "2026-09" }, { id: "b", mes: "2026-09" }, { id: "c", mes: "2026-09" }],
+    [
+      { amostra_id: "a", rotulo: "Coliformes totais", tipo: "INTERNO" },
+      { amostra_id: "a", rotulo: "pH", tipo: "INTERNO" },
+      { amostra_id: "b", rotulo: "Metais", tipo: "TERCEIRIZADO" },
+      { amostra_id: "c", rotulo: "pH", tipo: "INTERNO" },
+      { amostra_id: "c", rotulo: "Dioxinas", tipo: "TERCEIRIZADO" },
+    ],
+  );
+  assert.equal(r["2026-09"].total, 3);
+  assert.equal(r["2026-09"].casa, 2); // b só foi para parceiro
+});

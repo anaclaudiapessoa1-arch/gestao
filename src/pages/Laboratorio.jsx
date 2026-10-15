@@ -27,7 +27,10 @@ export default function Laboratorio() {
   const max = Math.max(1, ...SETORES.flatMap(([k]) => [at.porSetor[k]?.amostras || 0, an.porSetor[k]?.amostras || 0]));
   // Mês em andamento: comparar com o mês anterior inteiro daria quedas falsas.
   const parcial = mes === mesAtual();
-  const v = parcial ? null : pctVar(at.total, an.total);
+  // Amostras da MinasLab: com ao menos um ensaio feito aqui (as que só foram
+  // para laboratórios parceiros ficam de fora; isso é assunto do Comercial).
+  const casa = (x) => (x?.casa ?? x?.total ?? 0);
+  const v = parcial ? null : pctVar(casa(at), casa(an));
 
   return (
     <>
@@ -36,7 +39,7 @@ export default function Laboratorio() {
       </Cabecalho>
       {(st.erro || lp.erro) && <div className="aviso alerta">{st.erro || lp.erro}</div>}
       <div className="grade grade-kpi">
-        <Kpi rotulo={`Amostras recebidas em ${mesNome(mes)}`} valor={st.dados ? at.total : "…"} sub={parcial ? `mês em andamento · ${an.total} em ${mesNome(ant)}` : v == null ? "" : `${v >= 0 ? "▲" : "▼"} ${Math.abs(v)}% frente a ${mesNome(ant)}`} tomSub={v == null ? undefined : v >= 0 ? "ok" : "ruim"} />
+        <Kpi rotulo={`Amostras analisadas na MinasLab em ${mesNome(mes)}`} valor={st.dados ? casa(at) : "…"} sub={parcial ? `mês em andamento · ${casa(an)} em ${mesNome(ant)}` : v == null ? "" : `${v >= 0 ? "▲" : "▼"} ${Math.abs(v)}% frente a ${mesNome(ant)}`} tomSub={v == null ? undefined : v >= 0 ? "ok" : "ruim"} />
         <Kpi rotulo="Ensaios na MinasLab no mês" valor={st.dados ? ensaiosCasa(at) : "…"} sub={ensaiosCasa(an) ? `${ensaiosCasa(an)} em ${mesNome(ant)}` : ""} />
         <Kpi rotulo="OS em andamento atrasadas" valor={p ? p.os.atrasadas : "…"} sub={p ? `de ${p.os.andamento} em andamento · ${p.os.vencendo} vencem em 3 dias` : ""} tomSub={p?.os.atrasadas ? "ruim" : "ok"} />
         <Kpi rotulo={`Não conformidades em ${mesNome(mes)}`} valor={ncsMes.length} sub={`${ncsMes.filter((n) => n.retrabalho || /retrabalho/i.test(n.tipo)).length} com retrabalho`} />
