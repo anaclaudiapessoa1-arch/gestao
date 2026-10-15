@@ -11,7 +11,7 @@ import { PERGUNTAS_EQUIPE, PERGUNTAS_GESTAO } from "../../supabase/functions/ml-
 import { mesLongo, mesNome, dataCurta, numero } from "../lib/format.js";
 import { getSessao } from "../lib/sessao.js";
 import { lerXlsx } from "../lib/xlsxLeve.js";
-import { importarPlanilha } from "../lib/importarAvaliacoes.js";
+import { importarPlanilha, norm } from "../lib/importarAvaliacoes.js";
 import { reduzirFoto } from "../lib/foto.js";
 import { salvarEm } from "../services/dados.js";
 
@@ -40,7 +40,8 @@ export function rankingDoMes({ dados, elenco, pesquisas, mes }) {
   const avaliacoes = dados.destaque.filter((a) => a.mes === mes);
   const base = pesq?.avaliados?.length ? pesq.avaliados : elenco.map((p) => ({ id: p.id, nome: p.nome }));
   // Quem só tem avaliação da liderança no mês (ex.: histórico importado) também aparece.
-  const extra = avaliacoes.filter((a) => !base.some((p) => p.id === a.pessoaId)).map((a) => ({ id: a.pessoaId, nome: a.nome }));
+  // (mesmo nome = mesma pessoa: quem entrou no RH depois não aparece duas vezes)
+  const extra = avaliacoes.filter((a) => !base.some((p) => p.id === a.pessoaId || norm(p.nome) === norm(a.nome))).map((a) => ({ id: a.pessoaId, nome: a.nome }));
   const pessoas = [...base, ...extra.filter((p, i) => extra.findIndex((q) => q.id === p.id) === i)];
   return { pesq, ranking: rankingDestaque({ pessoas, equipe: pesq?.resultado, avaliacoes, pesos: pesosDestaque(dados) }) };
 }
@@ -627,7 +628,7 @@ function Fotos() {
   const { elenco, dados, gravar, remover } = useBase();
   const [erro, setErro] = useState("");
   const ativos = [...elenco].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")).map((p) => ({ id: p.id, nome: p.nome }));
-  const doHistorico = dados.destaque.filter((a) => !ativos.some((p) => p.id === a.pessoaId)).map((a) => ({ id: a.pessoaId, nome: a.nome }));
+  const doHistorico = dados.destaque.filter((a) => !ativos.some((p) => p.id === a.pessoaId || norm(p.nome) === norm(a.nome))).map((a) => ({ id: a.pessoaId, nome: a.nome }));
   const pessoas = [...ativos, ...doHistorico.filter((p, i) => doHistorico.findIndex((q) => q.id === p.id) === i)];
   const pag = usePaginacao(pessoas, 12);
   const fotoDe = (id) => dados.fotos.find((f) => f.id === id);
