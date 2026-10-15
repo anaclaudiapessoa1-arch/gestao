@@ -9,6 +9,8 @@ import { MODELOS, LAYOUTS, ROTULOS_CAMPOS, modeloPorId, slidesDoModelo, slideEmB
 import { usePesquisas, rankingDoMes, pesosDestaque } from "../pages/Destaque.jsx";
 import { podio } from "../lib/destaque.js";
 import { reduzirFoto } from "../lib/foto.js";
+import { lerEscala, mesesComNomes } from "../lib/escala.js";
+import { lerXlsx } from "../lib/xlsxLeve.js";
 import { totaisMes, serie } from "../lib/calculos.js";
 import { mesLongo, mesNome, somarMeses, dataCurta, novoId, hojeBR } from "../lib/format.js";
 
@@ -272,6 +274,7 @@ function Campos({ s, aoMudar }) {
         <div className="campo" key={c}>
           <label htmlFor={`c-${c}`}>{ROTULOS_CAMPOS[c] || c}</label>
           {c === "foto" ? <Foto valor={s.foto} aoMudar={(foto) => aoMudar({ foto })} />
+            : c === "escala" ? <CampoEscala s={s} aoMudar={aoMudar} />
             : longos.includes(c) ? <textarea id={`c-${c}`} className="entrada mono" rows={c === "itens" || s.layout === "topicos" || s.layout === "numero" ? 8 : 3} value={s[c] || ""} onChange={(e) => aoMudar({ [c]: e.target.value })} />
             : <input id={`c-${c}`} className="entrada" value={s[c] || ""} onChange={(e) => aoMudar({ [c]: e.target.value })} />}
           {l.ajuda?.[c] && <span className="suave peq">{l.ajuda[c]}</span>}
@@ -282,6 +285,39 @@ function Campos({ s, aoMudar }) {
         <textarea id="c-notas" className="entrada" rows={3} value={s.notas || ""} onChange={(e) => aoMudar({ notas: e.target.value })} />
       </div>
       <div className="suave peq">Marcadores: {"{mes}"}, {"{mesAnterior}"}, {"{ano}"} viram o mês da apresentação.</div>
+    </div>
+  );
+}
+
+/** Escala da cantina: importa a planilha (.xlsx) e escolhe o mês mostrado. */
+function CampoEscala({ s, aoMudar }) {
+  const [erro, setErro] = useState("");
+  const meses = mesesComNomes(s.escala);
+  const importar = async (e) => {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    setErro("");
+    try {
+      const lida = lerEscala(await lerXlsx(f));
+      if (!mesesComNomes(lida).length) { setErro("Não achei nomes na planilha. Confira se é a planilha da escala (uma aba por mês)."); return; }
+      aoMudar({ escala: { meses: lida.meses, importadaEm: new Date().toISOString(), arquivo: f.name.slice(0, 80) }, ...(lida.tarefas.length ? { texto: lida.tarefas.join("\n") } : {}), ...(lida.rodape ? { destaque: lida.rodape } : {}) });
+    } catch (ex) { setErro(ex.message || "Não consegui ler a planilha."); }
+  };
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <input type="file" accept=".xlsx" onChange={importar} aria-label="Planilha da escala" className="peq" />
+      {meses.length > 0 && (
+        <>
+          <span className="suave peq">Planilha {s.escala.arquivo ? `“${s.escala.arquivo}” ` : ""}com nomes em {meses.map((m) => mesNome(m)).join(", ")}. Para atualizar, importe de novo.</span>
+          <label className="peq" htmlFor="c-mes-escala">Mês mostrado no slide</label>
+          <select id="c-mes-escala" className="entrada" value={s.mesEscala || ""} onChange={(e) => aoMudar({ mesEscala: e.target.value })}>
+            <option value="">Automático: o mês da reunião</option>
+            {meses.map((m) => <option key={m} value={m}>{mesLongo(m)}</option>)}
+          </select>
+        </>
+      )}
+      {erro && <span className="peq" style={{ color: "var(--ruim)" }}>{erro}</span>}
     </div>
   );
 }

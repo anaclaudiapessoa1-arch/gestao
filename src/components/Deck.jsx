@@ -4,7 +4,8 @@
 // de slide no editor, de tela cheia e de página impressa.
 import { useEffect, useRef, useState } from "react";
 import { LAYOUTS, linhas, blocos, pares, preencher } from "../lib/modelosApresentacao.js";
-import { brl, pct, mesCurto, dataCurta } from "../lib/format.js";
+import { brl, pct, mesCurto, dataCurta, mesLongo } from "../lib/format.js";
+import { mesesComNomes, semanasUteis } from "../lib/escala.js";
 import { iniciais } from "./ui.jsx";
 
 export function Logo({ claro }) {
@@ -251,6 +252,40 @@ const RENDER = {
             <div className="dk-destaque-mes">{p.ctx.valores.mes}</div>
             <div className="dk-destaque-itens">{its.map((x, i) => { const [a, ...b] = x.split(":"); return <div key={i}><span className="dk-ic">{icones[i % icones.length]}</span>{b.length ? <><b>{a}:</b>{b.join(":")}</> : x}</div>; })}</div>
           </div>
+        </div>
+      </Moldura>
+    );
+  },
+  escala: (p) => {
+    const e = p.s.escala;
+    const meses = mesesComNomes(e);
+    const [a, m] = String(p.ctx.mes || "").split("-").map(Number);
+    const seguinte = a ? `${m === 12 ? a + 1 : a}-${String(m === 12 ? 1 : m + 1).padStart(2, "0")}` : "";
+    const alvo = p.s.mesEscala || seguinte; // padrão: o mês em que a reunião acontece
+    const mes = meses.includes(alvo) ? alvo : meses.find((x) => x >= alvo) || meses.at(-1);
+    if (!mes) return <Moldura {...p}><Aguardando texto="Importe a planilha da escala no editor deste slide." /></Moldura>;
+    const { dias, feriados } = e.meses[mes];
+    const tarefas = linhas(T(p.s.texto, p.ctx));
+    return (
+      <Moldura {...p}>
+        <div className="dk-col">
+          <div className="dk-escala-cab"><span className="dk-etiqueta verde">{mesLongo(mes)}</span></div>
+          <div className="dk-escala">
+            {["Segunda", "Terça", "Quarta", "Quinta", "Sexta"].map((d) => <div key={d} className="dk-escala-dia">{d}</div>)}
+            {semanasUteis(mes).flat().map((d, i) => {
+              if (!d) return <div key={i} className="dk-escala-cel vazia" />;
+              const fer = feriados[d];
+              return (
+                <div key={i} className={`dk-escala-cel${fer ? " feriado" : ""}${!fer && !dias[d] ? " livre" : ""}`}>
+                  <span className="dk-escala-n">{Number(d.slice(8))}</span>
+                  <b>{fer ? "Feriado" : dias[d] || "—"}</b>
+                  {fer && <em>{fer}</em>}
+                </div>
+              );
+            })}
+          </div>
+          {tarefas.length > 0 && <div className="dk-escala-tarefas">{tarefas.map((t, i) => <span key={i}><i>✓</i>{t}</span>)}</div>}
+          <Destaque texto={p.s.destaque} ctx={p.ctx} />
         </div>
       </Moldura>
     );

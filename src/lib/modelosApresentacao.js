@@ -24,6 +24,7 @@ export const LAYOUTS = {
   tendencia: { nome: "Tendência de 6 meses (CRM)", auto: true, campos: ["titulo", "texto"] },
   ranking: { nome: "Ranking do destaque (votação)", auto: true, campos: ["titulo", "texto"] },
   destaque: { nome: "Destaque do mês", auto: true, campos: ["titulo", "nome", "setor", "foto", "itens"], ajuda: { nome: "Em branco = 1º lugar do ranking", itens: "Uma linha por qualidade: Rótulo: texto" } },
+  escala: { nome: "Escala da cantina (planilha)", campos: ["titulo", "escala", "texto", "destaque"], ajuda: { texto: "Tarefas do responsável do dia, uma por linha (vêm da planilha)." } },
   combinados: { nome: "Combinados da última reunião", auto: true, campos: ["titulo"] },
   compromissos: { nome: "Próximos passos (ata desta reunião)", auto: true, campos: ["titulo"] },
   encerramento: { nome: "Encerramento", campos: ["titulo", "subtitulo", "texto"] },
@@ -32,7 +33,7 @@ export const LAYOUTS = {
 export const ROTULOS_CAMPOS = {
   titulo: "Título", subtitulo: "Subtítulo", texto: "Texto", itens: "Itens", destaque: "Caixa de destaque",
   numero: "Número grande", rotulo: "Legenda do número", frase: "Frase", nome: "Nome", setor: "Setor",
-  foto: "Foto", amostras: "Amostras analisadas no mês", amostrasAnterior: "Amostras no mês anterior",
+  foto: "Foto", escala: "Escala do mês", amostras: "Amostras analisadas no mês", amostrasAnterior: "Amostras no mês anterior",
 };
 
 const S = (layout, campos = {}, notas = "") => ({ layout, ...campos, notas });
@@ -45,6 +46,7 @@ const MENSAL = () => [
   S("numero", { titulo: "Abertura & calendário", numero: "{ano}", rotulo: "Cultura de alinhamento", texto: "# Reunião geral\nToda primeira ou segunda segunda-feira do mês.\nReforçamos a importância da participação coletiva para o alinhamento das metas e a melhoria contínua dos processos internos." }),
   S("frase", { titulo: "Dinâmica", frase: "Minha peça no quebra-cabeça", texto: "Cada um conta, em uma frase, como o seu trabalho ajudou o resultado do mês." }, "Até 10 minutos. Comece você, para dar o exemplo."),
   S("colunas", { titulo: "Organização do ambiente", itens: "## Cantina\nLimpa e organizada após o uso.\n## Almoxarifado\nCada item no seu lugar, identificado.\n## Banheiros\nUso consciente e limpo.\n## Estações\nPosto de trabalho em ordem no fim do dia.", destaque: "Risco de segurança: proibido o uso de equipamentos laboratoriais no horário de almoço." }, "Dever de todos: a organização impacta diretamente a eficiência e a imagem profissional do laboratório."),
+  S("escala", { titulo: "Escala de higienização da cantina", escala: null, mesEscala: "", texto: "Limpar a bancada, a pia e as mesas da cantina e do vestiário.\nRetirar o lixo dos ambientes na sexta-feira ou sempre que necessário.\nFazer o café quando necessário.", destaque: "Ambiente limpo é responsabilidade de todos. Obrigado pela colaboração!" }, "Mostre quem fica responsável em cada semana do mês. Quem não puder no dia combina a troca antes com um colega."),
   S("topicos", { titulo: "Qualidade do laboratório", texto: "# Principal objetivo\nGarantir a excelência e a conformidade dos processos, atendendo à ISO/IEC 17025.\n# Responsabilidades-chave\nConformidade dos processos e registros com a ISO/IEC 17025\nApoio à equipe nas rotinas e demandas da qualidade\nControle de estoques de materiais, reagentes e consumíveis\nAcompanhamento de compras e reposição de insumos\nMelhoria contínua e eficiência operacional", destaque: "Fortalecer a cultura da qualidade: resultados confiáveis, processos organizados e suporte ao crescimento do laboratório." }),
   S("topicos", { titulo: "Qualidade documental", texto: "# Comunicação interna\nObjetividade e clareza no registro de informações\nSem rasuras: folhas de análise devem ser impecáveis\nPrazos: entrega imediata após a finalização da análise", destaque: "“Erros de comunicação são a maior causa de retrabalho e atrasos.”" }),
   S("numero", { titulo: "Política de atestados", numero: "24h", rotulo: "Prazo limite", texto: "Importante: atestado não entregue no prazo gera desconto em folha e não pode ser compensado no banco de horas.\nProgramação: horas ausentes sem justificativa legal devem ser agendadas antes no banco de horas." }, "Fale da regra, nunca de casos de pessoas."),

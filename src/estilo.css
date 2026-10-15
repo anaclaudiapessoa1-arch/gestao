@@ -476,3 +476,19 @@ tr:last-child td { border-bottom: 0; }
 .convite-linha { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 0; border-top: 1px solid var(--linha-fraca); }
 .convite-linha:first-child { border-top: 0; }
 .convite-link { flex: 1; min-width: 220px; font: 12px ui-monospace, monospace; color: var(--neutro-tx); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- slide: escala da cantina ---------- */
+.dk-escala-cab { display: flex; justify-content: space-between; align-items: center; }
+.dk-escala { display: grid; grid-template-columns: repeat(5, 1fr); gap: .5cqw; }
+.dk-escala-dia { background: #1f3a4d; color: #fff; text-align: center; font: 600 1.05cqw Inter, sans-serif; text-transform: uppercase; letter-spacing: .06em; padding: .6cqw 0; border-radius: .5cqw; }
+.dk-escala-cel { position: relative; min-height: 4.6cqw; background: #eef6f5; border: 1px solid #cfe3e0; border-radius: .6cqw; padding: .5cqw .8cqw; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+.dk-escala-cel b { font: 600 1.35cqw Poppins, sans-serif; color: #0f4f4a; line-height: 1.15; }
+.dk-escala-cel em { font-style: normal; font-size: .9cqw; color: #9a3412; line-height: 1.2; }
+.dk-escala-n { position: absolute; top: .35cqw; left: .55cqw; font-size: .85cqw; font-weight: 600; color: #6b8a87; }
+.dk-escala-cel.feriado { background: #fff1e6; border-color: #fdba74; }
+.dk-escala-cel.feriado b { color: #9a3412; }
+.dk-escala-cel.livre b { color: #9fb4b2; }
+.dk-escala-cel.vazia { background: transparent; border-style: dashed; border-color: #e3ecea; }
+.dk-escala-tarefas { display: flex; flex-wrap: wrap; gap: .5cqw 1.4cqw; font-size: 1.1cqw; color: #24444f; }
+.dk-escala-tarefas i { font-style: normal; color: var(--marca); font-weight: 700; margin-right: .4cqw; }
+@media print { .dk-escala-dia, .dk-escala-cel { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
