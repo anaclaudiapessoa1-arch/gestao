@@ -62,7 +62,7 @@ export function CartaoAta({ deck, ctx, aoMudar }) {
   );
 }
 
-function EditorAta({ deck, ctx, aoSalvar, aoFechar }) {
+export function EditorAta({ deck, ctx = {}, aoSalvar, aoFechar }) {
   const { dados, setor } = useBase();
   const padrao = useParticipantesPadrao();
   // Solicitante, cargo e local: os da última ata gerada; participantes: os da última ata do mesmo tipo.
@@ -125,7 +125,7 @@ function EditorAta({ deck, ctx, aoSalvar, aoFechar }) {
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <h3 style={{ margin: 0 }}>Pauta</h3>
-            <button type="button" className="btn claro mini" onClick={refazer}>Refazer pelos slides</button>
+            {deck.slides?.length > 0 && <button type="button" className="btn claro mini" onClick={refazer}>Refazer pelos slides</button>}
           </div>
           <div className="suave peq" style={{ margin: "4px 0 8px" }}>Os números entram sozinhos. Escreva como foi falado na reunião: "- " no começo da linha vira marcador, "# " vira subtítulo em negrito.</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>

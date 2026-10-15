@@ -4,10 +4,12 @@ import { useBase } from "../hooks/base.jsx";
 import { Card, Chip } from "./ui.jsx";
 import { TIPOS_ATA, dataBR } from "../lib/ata.js";
 import { baixarAta } from "../lib/ataDocx.js";
+import { EditorAta } from "./AtaDocumento.jsx";
 
 export function ListaAtas() {
-  const { dados } = useBase();
+  const { dados, gravar } = useBase();
   const [filtro, setFiltro] = useState("");
+  const [editando, setEditando] = useState(null);
   const [erro, setErro] = useState("");
   const atas = dados.apresentacoes
     .filter((d) => d.ataDoc && (!filtro || d.ataDoc.tipo === filtro))
@@ -34,13 +36,20 @@ export function ListaAtas() {
                   <td className="tnum">{dataBR(d.ataDoc.data)}</td>
                   <td><Chip tom="marca">{TIPOS_ATA[d.ataDoc.tipo]?.curto}</Chip></td>
                   <td>{d.ataDoc.assunto}<div className="suave peq">{d.ataDoc.pauta?.length || 0} itens · {(d.ataDoc.participantes || []).length} participante(s)</div></td>
-                  <td className="peq">{d.titulo}</td>
-                  <td style={{ textAlign: "right" }}><button type="button" className="btn mini" onClick={() => baixar(d.ataDoc)}>Baixar em Word</button></td>
+                  <td className="peq">{d.ataImportada ? <span className="suave">Ata antiga importada</span> : d.titulo}</td>
+                  <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                    <button type="button" className="btn claro mini" onClick={() => setEditando(d)}>Editar</button>{" "}
+                    <button type="button" className="btn mini" onClick={() => baixar(d.ataDoc)}>Baixar em Word</button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      )}
+      {editando && (
+        <EditorAta deck={editando} aoFechar={() => setEditando(null)}
+          aoSalvar={(ataDoc) => { gravar("apresentacoes", { ...editando, ataDoc, atualizadoEm: new Date().toISOString() }).catch((e) => setErro(e.message)); setEditando(null); }} />
       )}
     </Card>
   );

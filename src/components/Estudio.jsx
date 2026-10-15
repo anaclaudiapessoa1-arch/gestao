@@ -55,7 +55,8 @@ export function Estudio({ categoria }) {
   const [aberto, setAberto] = useState(null);
   const [novo, setNovo] = useState(null);
   const modelos = MODELOS.filter((m) => (m.categoria === categoria || m.categoria === "ambos") && (!m.setor || m.setor === setor));
-  const decks = dados.apresentacoes.filter((d) => d.categoria === categoria).sort((a, b) => String(b.atualizadoEm || b.criadoEm).localeCompare(String(a.atualizadoEm || a.criadoEm)));
+  // Atas antigas importadas não são apresentações: aparecem só na aba Atas.
+  const decks = dados.apresentacoes.filter((d) => d.categoria === categoria && !d.ataImportada).sort((a, b) => String(b.atualizadoEm || b.criadoEm).localeCompare(String(a.atualizadoEm || a.criadoEm)));
   const pag = usePaginacao(decks, 6);
   const deck = decks.find((d) => d.id === aberto);
   if (deck) return <Editor deck={deck} aoVoltar={() => setAberto(null)} />;
