@@ -420,6 +420,90 @@ const RENDER = {
       </Moldura>
     );
   },
+  labPrazos: (p) => {
+    const d = p.ctx.lab;
+    if (!d?.os) return <Moldura {...p}><Aguardando texto={p.ctx.erroLab || "Lendo as ordens de serviço do CRM…"} /></Moldura>;
+    const m = d.porMes?.[p.ctx.mes] || { recebidas: 0, concluidas: 0 };
+    const lista = (d.os.lista || []).slice(0, 6);
+    return (
+      <Moldura {...p}>
+        <div className="dk-col">
+          <div className="dk-lab-tiles">
+            <Tile v={d.os.andamento} r="OS em andamento" escuro />
+            <Tile v={d.os.atrasadas} r="Atrasadas (vencimento passou)" escuro vermelho />
+            <Tile v={d.os.vencendo} r="Vencem nos próximos 3 dias" />
+            <Tile v={`${m.concluidas}/${m.recebidas}`} r={`Concluídas / recebidas em ${mesCurto(p.ctx.mes)}`} />
+          </div>
+          <div className="dk-lab-duas">
+            <div>
+              <b className="dk-lab-sub">OS mais atrasadas</b>
+              {lista.length ? lista.map((o, i) => <div key={i} className="dk-lab-linha"><span>{o.numero}{o.cliente ? ` · ${o.cliente}` : ""}</span><em className="desce">{o.dias} {o.dias === 1 ? "dia" : "dias"}</em></div>) : <div className="dk-lab-linha"><span>Nenhuma OS atrasada.</span></div>}
+            </div>
+            <div>
+              <b className="dk-lab-sub">Laboratórios parceiros</b>
+              <div className="dk-lab-linha"><span>Aguardando resultado</span><em>{d.parceiros?.aguardando ?? 0}</em></div>
+              <div className="dk-lab-linha"><span>Com previsão vencida</span><em className={d.parceiros?.atrasados ? "desce" : ""}>{d.parceiros?.atrasados ?? 0}</em></div>
+              {(d.parceiros?.porProvedor || []).slice(0, 3).map((x) => <div key={x.nome} className="dk-lab-linha"><span>{x.nome}</span><em>{x.mediaDias != null ? `${String(x.mediaDias).replace(".", ",")} dias em média` : `${x.envios} envio(s)`}</em></div>)}
+            </div>
+          </div>
+          {p.s.texto ? <Destaque texto={p.s.texto} ctx={p.ctx} /> : <div className="dk-lab-nota">Situação no dia da reunião · prazo interno pelo vencimento da OS no CRM</div>}
+        </div>
+      </Moldura>
+    );
+  },
+  labNcs: (p) => {
+    const r = p.ctx.ncs;
+    if (!r) return <Moldura {...p}><Aguardando texto="Carregando as não conformidades…" /></Moldura>;
+    const max = Math.max(1, ...r.porTipo.map((x) => x.n));
+    return (
+      <Moldura {...p}>
+        <div className="dk-setores">
+          <div className="dk-setores-esq">
+            <Tile v={r.total} r={`NCs em ${mesCurto(p.ctx.mes)}`} escuro />
+            <Tile v={r.retrabalho} r="Com retrabalho" vermelho />
+            <Tile v={r.abertas} r="Ainda em aberto" />
+          </div>
+          <div className="dk-col">
+            {r.porTipo.length ? r.porTipo.slice(0, 6).map((x) => (
+              <div key={x.nome} className="dk-setor">
+                <div className="dk-setor-nome"><b>{x.nome}</b></div>
+                <div className="dk-setor-barras"><div className="dk-setor-barra atual" style={{ width: `${(x.n / max) * 100}%` }}><em>{x.n}</em></div></div>
+                <div className="dk-setor-var" />
+              </div>
+            )) : <Aguardando texto="Nenhuma não conformidade registrada neste mês." />}
+            {r.porSetor.length > 0 && <div className="dk-setor-matrizes">{r.porSetor.map((x) => <span key={x.nome}><b>{x.n}</b> {x.nome}</span>)}</div>}
+            {p.s.texto && <Destaque texto={p.s.texto} ctx={p.ctx} />}
+          </div>
+        </div>
+      </Moldura>
+    );
+  },
+  labProdutividade: (p) => {
+    const r = p.ctx.produtividade;
+    if (!r?.pessoas?.length) return <Moldura {...p}><Aguardando texto="Lance os números do mês na página Produtividade." /></Moldura>;
+    const max = Math.max(1, ...r.pessoas.map((x) => x.ensaios));
+    return (
+      <Moldura {...p}>
+        <div className="dk-setores">
+          <div className="dk-setores-esq">
+            <Tile v={r.ensaios} r="Ensaios no mês" escuro />
+            <Tile v={r.laudos} r="Laudos ou relatórios" />
+            <Tile v={r.pctRetrabalho == null ? "—" : `${String(r.pctRetrabalho).replace(".", ",")}%`} r="Ensaios repetidos" vermelho={!!r.retrabalhos} />
+          </div>
+          <div className="dk-col">
+            {r.pessoas.slice(0, 8).map((x) => (
+              <div key={x.id || x.nome} className="dk-setor">
+                <div className="dk-setor-nome"><b>{x.nome}</b><span>{x.laudos} laudo(s){x.retrabalhos ? ` · ${x.retrabalhos} repetido(s)` : ""}</span></div>
+                <div className="dk-setor-barras"><div className="dk-setor-barra atual" style={{ width: `${(x.ensaios / max) * 100}%` }}><em>{x.ensaios}</em></div></div>
+                <div className="dk-setor-var" />
+              </div>
+            ))}
+            {p.s.texto && <Destaque texto={p.s.texto} ctx={p.ctx} />}
+          </div>
+        </div>
+      </Moldura>
+    );
+  },
   combinados: (p) => {
     const its = p.ctx.anterior || [];
     return (

@@ -28,6 +28,9 @@ export const LAYOUTS = {
   ranking: { nome: "Ranking do destaque (votação)", auto: true, campos: ["titulo", "texto"] },
   destaque: { nome: "Destaque do mês", auto: true, campos: ["titulo", "nome", "setor", "foto", "itens"], ajuda: { nome: "Em branco = 1º lugar do ranking", itens: "Uma linha por qualidade: Rótulo: texto" } },
   escala: { nome: "Escala da cantina (planilha)", campos: ["titulo", "escala", "texto", "destaque"], ajuda: { texto: "Tarefas do responsável do dia, uma por linha (vêm da planilha)." } },
+  labPrazos: { nome: "Prazos e ordens de serviço (CRM)", auto: true, campos: ["titulo", "texto"], ajuda: { texto: "Comentário da gestão (opcional). Mostra a situação do dia em que você apresenta." } },
+  labNcs: { nome: "Não conformidades do mês", auto: true, campos: ["titulo", "texto"], ajuda: { texto: "Comentário da gestão (opcional). Os números vêm da página Não conformidades." } },
+  labProdutividade: { nome: "Produtividade do mês", auto: true, campos: ["titulo", "texto"], ajuda: { texto: "Comentário da gestão (opcional). Os números vêm da página Produtividade." } },
   combinados: { nome: "Combinados da última reunião", auto: true, campos: ["titulo"] },
   compromissos: { nome: "Próximos passos (ata desta reunião)", auto: true, campos: ["titulo"] },
   encerramento: { nome: "Encerramento", campos: ["titulo", "subtitulo", "texto"] },
@@ -115,6 +118,22 @@ const COMERCIAL = () => [
   S("encerramento", { titulo: "Obrigado!", subtitulo: "MinasLab · Compromisso com a Qualidade", texto: "Relacionamento, agilidade e confiança em cada proposta." }),
 ];
 
+const LABORATORIO = () => [
+  S("capa", { titulo: "Reunião do Laboratório", subtitulo: "{mes}", texto: "MinasLab · Laboratório de Controle de Qualidade" }, "Objetivo: olhar prazos, qualidade e produção do mês, tratar as não conformidades e combinar o próximo mês."),
+  S("agenda", { titulo: "Agenda", itens: "Combinados | O que ficou da última reunião\nVolume | Amostras e ensaios por setor\nPrazos | OS atrasadas e laboratórios parceiros\nQualidade | Não conformidades e retrabalho\nPróximo mês | Metas e compromissos" }),
+  S("combinados", { titulo: "O que combinamos na última reunião" }, "Item por item: feito, não feito e por quê. O que não foi feito ganha nova data."),
+  S("setores", { titulo: "Amostras e ensaios por setor · {mes}", texto: "" }, "Onde o volume cresceu, reconheça a equipe; onde caiu, explique o motivo (sazonalidade, cliente, coleta)."),
+  S("labPrazos", { titulo: "Prazos e ordens de serviço", texto: "" }, "Comece pelas OS mais atrasadas: o que está travando cada uma e quem resolve até quando. Anote como compromisso."),
+  S("labNcs", { titulo: "Não conformidades · {mes}", texto: "" }, "Fale do processo, não das pessoas. O que se repete vira ação corretiva com dono e prazo."),
+  S("labProdutividade", { titulo: "Produtividade · {mes}", texto: "" }, "Reconheça o esforço. Retrabalho alto é sinal de método ou de equipamento: investigue antes de cobrar."),
+  S("colunas", { titulo: "Organização da bancada e do freezer", itens: "## Identificação\nToda amostra identificada, com data e validade.\n## Armazenamento\nCada compartimento no seu lugar; nada sem dono.\n## Descarte\nAmostras e materiais vencidos ou desnecessários saem da geladeira.\n## Bancada\nLimpa e organizada no fim do dia.", destaque: "A responsabilidade pela organização é de toda a equipe e deve ser exercida diariamente." }),
+  S("topicos", { titulo: "Qualidade e ISO/IEC 17025", texto: "# Neste mês\nCartas de controle e análises em duplicata: ____\nCalibrações e verificações de equipamentos: ____\nEnsaios de proficiência: ____\nAuditorias e visitas: ____", destaque: "Folhas de análise sem rasura e entregues logo após a análise." }, "Atualize com os pontos do mês junto com a Qualidade."),
+  S("fluxo", { titulo: "Compras programadas", itens: "Identificação | Análise de estoque por setor\nSolicitação | Envio do pedido pela planilha\nDia 19 | Prazo máximo do mês!\nRecebimento | Conferência e organização", destaque: "Planejar reagentes e consumíveis evita pedido emergencial e análise parada." }),
+  S("colunas", { titulo: "Metas de {mesSeguinte}", itens: "## Prazos\nOS atrasadas: no máximo ____\n## Qualidade\nNão conformidades: no máximo ____\n## Retrabalho\nEnsaios repetidos: até ____%" }, "Defina metas com número e confira na próxima reunião."),
+  S("compromissos", { titulo: "Próximos passos" }, "Cada compromisso com dono e prazo. Ele abre a próxima reunião."),
+  S("encerramento", { titulo: "Obrigado!", subtitulo: "MinasLab · Compromisso com a Qualidade", texto: "Precisão, organização e prazo em cada resultado." }),
+];
+
 const TREINAMENTO = () => [
   S("capa", { titulo: "Nome do treinamento", subtitulo: "Treinamento MinasLab", texto: "Para quem: ____ · Duração: 30 min" }),
   S("numero", { titulo: "Por que este treinamento", numero: "00%", rotulo: "o número que queremos mudar", texto: "Explique de onde vem o número e o que acontece se ele não mudar." }, "Todo treinamento ataca um número que o sistema mostra. Meça de novo 30 dias depois."),
@@ -137,6 +156,7 @@ const LIVRE = () => [
 export const MODELOS = [
   { id: "mensal", categoria: "reuniao", nome: "Reunião mensal de resultados", desc: "A reunião geral do mês: calendário, avisos, indicadores do CRM, ranking e destaque. Você só completa o que mudou.", titulo: "Reunião mensal de resultados · {mes}", slides: MENSAL },
   { id: "comercial", categoria: "reuniao", setor: "comercial", nome: "Reunião do Comercial", desc: "Só a equipe comercial: indicadores do CRM, propostas em aberto, carteira, qualidade do registro e metas do próximo mês.", titulo: "Reunião do Comercial · {mes}", slides: COMERCIAL },
+  { id: "laboratorio", categoria: "reuniao", setor: "laboratorio", nome: "Reunião do Laboratório", desc: "Só a equipe do laboratório: amostras por setor, prazos e OS atrasadas, não conformidades, produtividade e metas.", titulo: "Reunião do Laboratório · {mes}", slides: LABORATORIO },
   { id: "integracao", categoria: "treinamento", nome: "Integração de novos colaboradores", desc: "Módulo 1: ISO/IEC 17025, escopo CRL 1943, matrizes e recepção de amostras. Módulo 2: Declaração de Ética. Com teste no final.", titulo: "Integração e Capacitação Técnica", slides: INTEGRACAO },
   { id: "treinamento", categoria: "treinamento", nome: "Novo treinamento", desc: "Estrutura pronta: o número que queremos mudar, objetivo, conteúdo, regra de ouro, prática e teste.", titulo: "Novo treinamento", slides: TREINAMENTO },
   { id: "livre", categoria: "ambos", nome: "Em branco", desc: "Capa, um slide e encerramento. Monte do seu jeito.", titulo: "Nova apresentação", slides: LIVRE },

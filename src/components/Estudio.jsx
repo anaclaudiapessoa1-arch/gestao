@@ -3,7 +3,8 @@
 // Gravação automática na coleção rh_comercial_apresentacoes.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useBase, useCRM } from "../hooks/base.jsx";
-import { setoresCRM } from "../services/crm.js";
+import { setoresCRM, labPainelCRM } from "../services/crm.js";
+import { resumoNcs, resumoProdutividade } from "../lib/labResumo.js";
 import { Card, Chip, Modal, Paginacao, usePaginacao } from "./ui.jsx";
 import { SlideML, Apresentador, ImpressaoDeck, nomeLayout } from "./Deck.jsx";
 import { CartaoAta } from "./AtaDocumento.jsx";
@@ -28,6 +29,8 @@ function useContexto(deck) {
   const refSet = deck.ref || base.mes;
   const precisaSetores = deck.slides.some((s) => s.layout === "setores" || s.layout === "indicadores");
   const set = useCRM(precisaSetores ? `setores-${refSet}` : "setores-nenhum", precisaSetores ? () => setoresCRM(refSet) : async () => null);
+  const precisaLab = deck.slides.some((s) => s.layout === "labPrazos");
+  const lab = useCRM(precisaLab ? "labPainel" : "labPainel-nenhum", precisaLab ? labPainelCRM : async () => null);
   return useMemo(() => {
     const ref = deck.ref || base.mes;
     const ant = somarMeses(ref, -1);
@@ -40,8 +43,10 @@ function useContexto(deck) {
       .filter((d) => d.modelo === deck.modelo && d.id !== deck.id && String(d.ref) < String(ref))
       .sort((a, b) => String(b.ref).localeCompare(String(a.ref)))[0];
     const fotos = Object.fromEntries((dados.fotos || []).filter((f) => f.foto).map((f) => [f.id, f.foto]));
-    return { mes: ref, valores, indicadores, serie: ser, podio: top, fotos, anterior: anterior?.ata || [], ata: deck.ata || [], setores: set.dados, erroSetores: set.erro };
-  }, [deck, resumo, config, dados, elenco, pesq.lista, precisaRanking, base.mes, set.dados, set.erro]);
+    const ncs = resumoNcs(dados.ncs || [], ref);
+    const produtividade = resumoProdutividade(dados.produtividade || [], ref);
+    return { mes: ref, valores, indicadores, serie: ser, podio: top, fotos, anterior: anterior?.ata || [], ata: deck.ata || [], setores: set.dados, erroSetores: set.erro, lab: lab.dados, erroLab: lab.erro, ncs, produtividade };
+  }, [deck, resumo, config, dados, elenco, pesq.lista, precisaRanking, base.mes, set.dados, set.erro, lab.dados, lab.erro]);
 }
 
 // ------------------------------------------------------------------ lista

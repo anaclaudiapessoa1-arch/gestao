@@ -592,3 +592,13 @@ tr:last-child td { border-bottom: 0; }
   .impressao:has(.cert-pagina) { position: static !important; }
   .cert-pagina, .cert-folha, .cert-selo, .cert-nome::after, .cert-canto, .cert-assinatura span { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+
+/* ---------- slides do laboratório ---------- */
+.dk-lab-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.2cqw; }
+.dk-lab-duas { display: grid; grid-template-columns: 1.3fr 1fr; gap: 2.4cqw; }
+.dk-lab-sub { display: block; font: 600 1.35cqw Poppins, sans-serif; color: #1f3a4d; margin-bottom: .6cqw; }
+.dk-lab-linha { display: flex; justify-content: space-between; gap: 1cqw; padding: .45cqw 0; border-bottom: 1px solid #e3ecea; font-size: 1.2cqw; }
+.dk-lab-linha span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dk-lab-linha em { font-style: normal; font-weight: 600; color: #1f3a4d; white-space: nowrap; }
+.dk-lab-linha em.desce { color: #dc2626; }
+.dk-lab-nota { font-size: 1cqw; color: #6b7c80; }

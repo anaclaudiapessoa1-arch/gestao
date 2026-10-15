@@ -87,6 +87,43 @@ export function itemDoSlide(s, ctx = {}) {
       const nome = (s.nome || "").trim() || ctx.podio?.[0]?.nome || "";
       return { titulo, corpo: junta(nome ? `Foi reconhecido como destaque do mês de ${String(ctx.valores?.mes || "").toLowerCase()}: ${nome}.` : "Foi reconhecido o colaborador destaque do mês.", linhas(T(s.itens, ctx)).map((l) => `- ${l}`)) };
     }
+    case "labPrazos": {
+      const d = ctx.lab;
+      if (!d?.os) return { titulo, corpo: T(s.texto, ctx) };
+      const m = d.porMes?.[ctx.mes] || { recebidas: 0, concluidas: 0 };
+      return {
+        titulo,
+        corpo: junta(
+          `No dia da reunião havia ${qtd(d.os.andamento, "ordem de serviço em andamento", "ordens de serviço em andamento")}, ${d.os.atrasadas ? `${d.os.atrasadas} com prazo vencido` : "nenhuma com prazo vencido"} e ${d.os.vencendo} vencendo nos próximos 3 dias.`,
+          `- Em ${mesLongo(ctx.mes).toLowerCase()}: ${qtd(m.recebidas, "OS recebida", "OS recebidas")} e ${qtd(m.concluidas, "concluída", "concluídas")}`,
+          `- Laboratórios parceiros: ${d.parceiros?.aguardando ?? 0} aguardando resultado, ${d.parceiros?.atrasados ?? 0} com previsão vencida`,
+          T(s.texto, ctx),
+        ),
+      };
+    }
+    case "labNcs": {
+      const r = ctx.ncs;
+      if (!r) return { titulo, corpo: T(s.texto, ctx) };
+      return {
+        titulo,
+        corpo: junta(
+          r.total ? `Foram registradas ${qtd(r.total, "não conformidade", "não conformidades")} no mês, ${r.retrabalho ? `${r.retrabalho} com retrabalho` : "nenhuma com retrabalho"}; ${r.abertas} ainda em aberto.` : `Nenhuma não conformidade registrada no mês${r.abertas ? `; ${r.abertas} ainda em aberto de meses anteriores` : ""}.`,
+          r.porTipo.map((x) => `- ${x.nome}: ${x.n}`),
+          T(s.texto, ctx),
+        ),
+      };
+    }
+    case "labProdutividade": {
+      const r = ctx.produtividade;
+      if (!r?.pessoas?.length) return { titulo, corpo: T(s.texto, ctx) };
+      return {
+        titulo,
+        corpo: junta(
+          `No mês foram realizados ${r.ensaios} ensaios e emitidos ${r.laudos} laudos ou relatórios${r.pctRetrabalho != null ? `; ${String(r.pctRetrabalho).replace(".", ",")}% dos ensaios foram repetidos` : ""}.`,
+          T(s.texto, ctx),
+        ),
+      };
+    }
     case "combinados": {
       const its = ctx.anterior || [];
       return its.length ? { titulo, corpo: junta("Foram revisados os combinados da reunião anterior:", its.map((x) => `- ${x.texto}${x.dono ? ` (${x.dono})` : ""}: ${x.feito ? "concluído" : "pendente"}`)) } : null;
