@@ -297,7 +297,8 @@ export function metasDaFuncao(funcao) {
 
 /**
  * A pessoa faz parte da equipe no mês? Entra a partir do mês de entrada
- * (`entrouEm`, opcional) e fica até o mês da saída (`desligadoEm`), inclusive.
+ * (`entrouEm`, opcional) e sai a partir do mês do desligamento: aparece só
+ * até o mês ANTERIOR ao `desligadoEm`.
  * Inativa sem data de saída não aparece em mês nenhum.
  */
 export function naEquipeNoMes(m, mes) {
@@ -306,5 +307,5 @@ export function naEquipeNoMes(m, mes) {
   if (entrou && mes < entrou) return false;
   if (m.ativo !== false) return true;
   const saiu = String(m.desligadoEm || "").slice(0, 7);
-  return !!saiu && mes <= saiu;
+  return !!saiu && mes < saiu;
 }

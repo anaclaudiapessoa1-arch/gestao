@@ -137,7 +137,7 @@ test("equipe do mês segue entrada e saída", async () => {
   const { naEquipeNoMes } = await import("./calculos.js");
   const saiu = { ativo: false, desligadoEm: "2026-10-13" };
   assert.equal(naEquipeNoMes(saiu, "2026-09"), true);
-  assert.equal(naEquipeNoMes(saiu, "2026-10"), true);
+  assert.equal(naEquipeNoMes(saiu, "2026-10"), false);
   assert.equal(naEquipeNoMes(saiu, "2026-11"), false);
   assert.equal(naEquipeNoMes({ ativo: false }, "2026-09"), false);
   const novo = { ativo: true, entrouEm: "2026-08-04" };
