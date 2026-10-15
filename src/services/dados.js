@@ -44,9 +44,14 @@ export async function carregarTudo() {
   return out;
 }
 
+// Nome de colaborador sempre em MAIÚSCULAS (o padrão do cadastro do RH).
+const NOME_MAIUSCULO = new Set(["equipe", "destaque", "fotos"]);
+export const nomeMaiusculo = (n) => String(n ?? "").replace(/\s+/g, " ").trim().toLocaleUpperCase("pt-BR");
+
 export async function salvar(chave, registro) {
   const colecao = COLECOES[chave];
   const reg = { ...registro };
+  if (NOME_MAIUSCULO.has(chave) && typeof reg.nome === "string") reg.nome = nomeMaiusculo(reg.nome);
   if (!reg.id) reg.id = novoId(chave.slice(0, 3));
   if (!reg.criadoEm) reg.criadoEm = new Date().toISOString();
   const r = await chamar("upsert", { colecao, registro: reg });

@@ -31,7 +31,7 @@ export function casarPessoa(nome, elenco) {
   const achados = mesmoPrimeiro.length === 1 ? mesmoPrimeiro
     : mesmoPrimeiro.filter((p) => { const u = norm(p.nome).split(" "); return t.slice(1).some((x) => x.length >= 4 && u.includes(x)); });
   if (achados.length === 1) return { id: achados[0].id, nome: achados[0].nome, doRH: true };
-  return { id: `plan_${slug(nome)}`, nome: titulo(nome), doRH: false };
+  return { id: `plan_${slug(nome)}`, nome: String(nome).replace(/\s+/g, " ").trim().toLocaleUpperCase("pt-BR"), doRH: false };
 }
 
 function colunas(cab, regras) {
