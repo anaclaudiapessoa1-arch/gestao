@@ -192,23 +192,21 @@ export function avaliar({ resumo, membro, mes, notas = {}, nOcorrencias = 0, con
   const metas = metasDe(membro);
   const r = realizado(resumo, membro, mes);
 
-  // Função que não envia propostas (ex.: coletor): metas de propostas e de
-  // aprovação ZERADAS de propósito = a parte automática não se aplica e não
-  // trava a avaliação. Meta em branco (não cadastrada) continua pendente.
-  const aplicaMetas = !(numero(metas.propostas) === 0 && numero(metas.aprovacao) === 0);
-  const auto = !aplicaMetas ? [
-    { id: "vol", nome: "Volume de propostas", desc: "não se aplica: a função não envia propostas", nota: null, naoAplica: true },
-    { id: "aprov", nome: "Taxa de aprovação", desc: "não se aplica: a função não envia propostas", nota: null, naoAplica: true },
-  ] : [
+  // Meta em branco ou zero = não se aplica (o cadastro da equipe pede "deixe em
+  // branco o que não se aplica"; ex.: coletor não envia propostas). O que não
+  // se aplica não entra na nota nem trava a avaliação.
+  const auto = [
     {
       id: "vol", nome: "Volume de propostas",
-      desc: metas.propostas ? `${r.enviadas} de ${metas.propostas} no mês` : "sem meta definida",
+      desc: metas.propostas ? `${r.enviadas} de ${metas.propostas} no mês` : "não se aplica (sem meta de propostas)",
       nota: metas.propostas ? Math.min(10, (r.enviadas / metas.propostas) * 10) : null,
+      naoAplica: !metas.propostas,
     },
     {
       id: "aprov", nome: "Taxa de aprovação",
-      desc: !metas.aprovacao ? "sem meta definida" : r.taxa == null ? "sem propostas no mês" : `${Math.round(r.taxa)}% (meta ${metas.aprovacao}%)`,
+      desc: !metas.aprovacao ? "não se aplica (sem meta de aprovação)" : r.taxa == null ? "sem propostas no mês" : `${Math.round(r.taxa)}% (meta ${metas.aprovacao}%)`,
       nota: metas.aprovacao && r.taxa != null ? Math.min(10, (r.taxa / metas.aprovacao) * 10) : null,
+      naoAplica: !metas.aprovacao,
     },
   ];
 
@@ -244,7 +242,7 @@ export function avaliar({ resumo, membro, mes, notas = {}, nOcorrencias = 0, con
   }
 
   const pendencias = [];
-  if (faltamMetas) pendencias.push(`${faltamMetas} meta${faltamMetas > 1 ? "s" : ""} sem valor definido`);
+  if (faltamMetas) pendencias.push(`${faltamMetas} meta${faltamMetas > 1 ? "s" : ""} sem resultado no mês`);
   if (faltamManuais) pendencias.push(`${faltamManuais} critério${faltamManuais > 1 ? "s" : ""} sem nota`);
 
   return { auto, tec, comp, base, desconto, final, nOcorrencias, faixa, bonus, completa, pendencias };
@@ -295,4 +293,18 @@ export function metasDaFuncao(funcao) {
   return String(funcao?.kpis || "").split("\n").map((l) => l.trim()).filter(Boolean)
     .map((l) => { const [indicador, medida = "", meta = ""] = l.split(/\s+[—–]\s+/); return { indicador: indicador.trim(), medida: medida.trim(), meta: meta.trim() }; })
     .filter((k) => k.indicador);
+}
+
+/**
+ * A pessoa faz parte da equipe no mês? Entra a partir do mês de entrada
+ * (`entrouEm`, opcional) e fica até o mês da saída (`desligadoEm`), inclusive.
+ * Inativa sem data de saída não aparece em mês nenhum.
+ */
+export function naEquipeNoMes(m, mes) {
+  if (!m) return false;
+  const entrou = String(m.entrouEm || "").slice(0, 7);
+  if (entrou && mes < entrou) return false;
+  if (m.ativo !== false) return true;
+  const saiu = String(m.desligadoEm || "").slice(0, 7);
+  return !!saiu && mes <= saiu;
 }

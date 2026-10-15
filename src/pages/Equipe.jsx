@@ -11,7 +11,7 @@ import { mediaAnterior, realizado } from "../lib/calculos.js";
 const norm = (s) => String(s || "").normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
 
 export default function Equipe() {
-  const { equipe, dados, resumo, gravar, config, elenco, funcaoDe } = useBase();
+  const { equipeAtual: equipe, dados, resumo, gravar, config, elenco, funcaoDe } = useBase();
   const [editando, setEditando] = useState(null);
   const [desligando, setDesligando] = useState(null);
   const ativosRH = new Set(elenco.map((p) => p.id));
@@ -170,6 +170,11 @@ function EditorPessoa({ inicial, aoFechar }) {
             <option value="">— sem vínculo —</option>
             {elenco.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
           </select>
+        </div>
+        <div className="campo">
+          <label htmlFor="p-entrou">Entrou na equipe em (admissão)</label>
+          <input id="p-entrou" className="entrada" type="date" style={{ maxWidth: 200 }} value={m.entrouEm || ""} onChange={(e) => setM({ ...m, entrouEm: e.target.value })} />
+          <span className="suave peq">Em branco = aparece em todos os meses. A saída é registrada no botão Desligar; a pessoa continua aparecendo até o mês da saída.</span>
         </div>
         {m.funcaoId && dados.funcoes.find((x) => x.id === m.funcaoId) && <MetasFuncao f={dados.funcoes.find((x) => x.id === m.funcaoId)} titulo="Metas da função (vêm da descrição de cargo)" />}
         <div className="rotulo" style={{ marginTop: 4 }}>Metas medidas pelo CRM (só para quem envia propostas; deixe em branco o que não se aplica)</div>

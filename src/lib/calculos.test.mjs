@@ -89,11 +89,11 @@ test("avaliação: desconto tem teto de 2,0 e nota incompleta não paga bônus",
   assert.ok(a.pendencias.some((p) => /7 critérios sem nota/.test(p)));
 });
 
-test("avaliação: sem meta definida, metas ficam pendentes e o peso vai para os outros grupos", () => {
+test("avaliação: sem meta definida, metas não se aplicam e o peso vai para os outros grupos", () => {
   const a = avaliar({ resumo, membro: { crmProfileId: "pessoaA", metas: {} }, mes: "2026-09", notas: { org: 8, com: 8, atd: 8, iso: 8, pro: 6, eq: 6, resp: 6, qual: 6 } });
   // (8×30 + 6×20) / 50 = 7,2
   assert.equal(a.base.toFixed(1), "7.2");
-  assert.equal(a.completa, false);
+  assert.equal(a.completa, true);
 });
 
 test("série da equipe soma o total do mês", () => {
@@ -131,4 +131,17 @@ test("avaliação: função sem propostas (metas zeradas) fecha só com técnico
   assert.equal(a.pendencias.length, 0);
   assert.ok(a.auto.every((c) => c.naoAplica));
   assert.notEqual(a.bonus, null);
+});
+
+test("equipe do mês segue entrada e saída", async () => {
+  const { naEquipeNoMes } = await import("./calculos.js");
+  const saiu = { ativo: false, desligadoEm: "2026-10-13" };
+  assert.equal(naEquipeNoMes(saiu, "2026-09"), true);
+  assert.equal(naEquipeNoMes(saiu, "2026-10"), true);
+  assert.equal(naEquipeNoMes(saiu, "2026-11"), false);
+  assert.equal(naEquipeNoMes({ ativo: false }, "2026-09"), false);
+  const novo = { ativo: true, entrouEm: "2026-08-04" };
+  assert.equal(naEquipeNoMes(novo, "2026-07"), false);
+  assert.equal(naEquipeNoMes(novo, "2026-08"), true);
+  assert.equal(naEquipeNoMes({ ativo: true }, "2025-01"), true);
 });

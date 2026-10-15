@@ -7,7 +7,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { carregarTudo, salvar, apagar, elencoRH } from "../services/dados.js";
 import { resumoCRM } from "../services/crm.js";
 import { mesAtual } from "../lib/format.js";
-import { configCompleta } from "../lib/calculos.js";
+import { configCompleta, naEquipeNoMes } from "../lib/calculos.js";
 
 const Ctx = createContext(null);
 
@@ -52,12 +52,16 @@ export function BaseProvider({ children }) {
   }, []);
 
   const valor = useMemo(() => {
-    const equipe = [...dados.equipe].filter((m) => m.ativo !== false).sort((a, b) => (a.ordem ?? 99) - (b.ordem ?? 99) || String(a.nome).localeCompare(String(b.nome), "pt-BR"));
+    const ordenar = (xs) => [...xs].sort((a, b) => (a.ordem ?? 99) - (b.ordem ?? 99) || String(a.nome).localeCompare(String(b.nome), "pt-BR"));
+    // equipe = quem fazia parte da equipe no MÊS escolhido (entrada e saída);
+    // equipeAtual = quem está na equipe hoje (cadastro, cockpit, atribuições).
+    const equipe = ordenar(dados.equipe.filter((m) => naEquipeNoMes(m, mes)));
+    const equipeAtual = ordenar(dados.equipe.filter((m) => m.ativo !== false));
     const config = configCompleta(dados.config.find((c) => c.id === "geral"));
     const ocorrenciasDe = (pessoaId, m = mes) => dados.ocorrencias.filter((o) => o.mes === m && o.pessoaId === pessoaId);
     const funcaoDe = (membro) => dados.funcoes.find((f) => f.id === membro?.funcaoId) || null;
     const nomeCRM = (id) => resumo?.pessoas?.[id]?.nome || (id ? "Usuário do CRM" : "Sem responsável");
-    return { dados, equipe, config, resumo, elenco, carregando, erro, erroCRM, mes, setMes, recarregar, gravar, remover, ocorrenciasDe, funcaoDe, nomeCRM, crmCache, setCrmCache };
+    return { dados, equipe, equipeAtual, config, resumo, elenco, carregando, erro, erroCRM, mes, setMes, recarregar, gravar, remover, ocorrenciasDe, funcaoDe, nomeCRM, crmCache, setCrmCache };
   }, [dados, resumo, elenco, carregando, erro, erroCRM, mes, recarregar, gravar, remover, crmCache]);
 
   return <Ctx.Provider value={valor}>{children}</Ctx.Provider>;

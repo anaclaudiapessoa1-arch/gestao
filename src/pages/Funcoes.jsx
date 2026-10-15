@@ -36,7 +36,7 @@ export function paraRegistro(f) {
 const paraForm = (r) => ({ ...r, identificacao: { ...(r.identificacao || {}) }, metasPadrao: { ...(r.metasPadrao || {}) }, trilhas: r.trilhas || [], criteriosTexto: (r.criterios || []).map((c) => (c.desc ? `${c.nome} — ${c.desc}` : c.nome)).join("\n") });
 
 export default function Funcoes() {
-  const { dados, equipe, gravar, remover } = useBase();
+  const { dados, equipeAtual: equipe, gravar, remover } = useBase();
   const [editando, setEditando] = useState(null);
   const [vendo, setVendo] = useState(null);
   const [msg, setMsg] = useState("");

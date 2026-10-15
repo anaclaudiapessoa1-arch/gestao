@@ -11,7 +11,7 @@ import { totaisMes, realizado, mediaAnterior, previsaoMes } from "../lib/calculo
 const DIAS_SEMANA = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
 
 export default function Cockpit() {
-  const { resumo, equipe, config, dados, nomeCRM } = useBase();
+  const { resumo, equipeAtual: equipe, config, dados, nomeCRM } = useBase();
   const ck = useCRM("cockpit", cockpitCRM);
   const cart = useCRM("carteira", carteiraCRM);
   const nps = useCRM("nps", npsCRM);

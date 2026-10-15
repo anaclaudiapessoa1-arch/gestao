@@ -69,7 +69,7 @@ export default function Treinamentos() {
 }
 
 function Trilhas() {
-  const { resumo, equipe, dados } = useBase();
+  const { resumo, equipeAtual: equipe, dados } = useBase();
   const nps = useCRM("nps", npsCRM);
   const lic = useCRM("licitacoes", licitacoesCRM);
   const sug = motivos({ resumo, equipe, dados, nps: nps.dados?.respostas, lics: lic.dados?.licitacoes });
@@ -179,7 +179,7 @@ function Pergunta({ q, n }) {
 }
 
 function Registro({ trilha }) {
-  const { equipe, gravar } = useBase();
+  const { equipeAtual: equipe, gravar } = useBase();
   const [data, setData] = useState(hojeBR());
   const [part, setPart] = useState(() => Object.fromEntries(equipe.map((p) => [p.id, { presente: true, nota: "" }])));
   const [obs, setObs] = useState("");
