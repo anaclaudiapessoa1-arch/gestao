@@ -3,29 +3,8 @@
 // As duas na MESMA escala antes de aplicar os pesos — na planilha antiga a
 // soma direta dava peso dobrado à equipe sem ninguém ter decidido isso.
 
-export const CRITERIOS_LIDERANCA = [
-  { id: "p1", nome: "Prazos e metas", desc: "Cumpre prazos e metas combinados." },
-  { id: "p2", nome: "Qualidade técnica", desc: "Qualidade das análises, propostas e OS; erro zero." },
-  { id: "p3", nome: "Normas sanitárias", desc: "Segue as normas da Vigilância e da ISO/IEC 17025." },
-  { id: "p4", nome: "Organização", desc: "Posto, materiais e registros organizados." },
-  { id: "p5", nome: "Comunicação", desc: "Registra e repassa informação com clareza, sem retrabalho." },
-  { id: "p6", nome: "Proatividade", desc: "Antecipa problemas e propõe soluções." },
-  { id: "p7", nome: "Assiduidade e pontualidade", desc: "Presença e horários (faltas justificadas não contam)." },
-  { id: "p8", nome: "Responsabilidade com materiais", desc: "Cuida de equipamentos, insumos e documentos." },
-  { id: "p9", nome: "Ética", desc: "Imparcialidade, sigilo e respeito." },
-  { id: "p10", nome: "Colaboração", desc: "Apoia os colegas e outros setores." },
-];
-
-export const MOTIVOS_ELIMINATORIOS = [
-  "Recebeu advertência",
-  "Descumpriu normas da Vigilância Sanitária",
-  "Apresentou falta grave de organização",
-  "Gerou retrabalho por falha de comunicação",
-  "Atrasos recorrentes sem justificativa",
-  "Não entregou documento no prazo",
-  "Férias ou afastamento no mês",
-  "Outro motivo",
-];
+import { CRITERIOS_LIDERANCA, MOTIVOS_ELIMINATORIOS } from "../../supabase/functions/ml-comercial/lideranca.mjs";
+export { CRITERIOS_LIDERANCA, MOTIVOS_ELIMINATORIOS };
 
 export const PESOS_PADRAO = { equipe: 40, lideranca: 60 };
 

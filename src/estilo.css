@@ -466,3 +466,13 @@ tr:last-child td { border-bottom: 0; }
 .foto-cartao { display: flex; gap: 12px; align-items: center; padding: 12px; border: 1px solid var(--linha); border-radius: 12px; background: #fff; }
 
 .modal.largo { width: min(1040px, calc(100vw - 32px)); max-width: none; }
+
+/* ---------- avaliação da liderança por link ---------- */
+.liderar-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.liderar-pessoa { width: 100%; display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--linha-fraca); border-radius: 12px; background: #fff; cursor: pointer; text-align: left; font: inherit; color: inherit; }
+.liderar-pessoa:hover { border-color: var(--marca-400); }
+.liderar-nome { flex: 1; min-width: 0; font-weight: 500; }
+.convites { display: flex; flex-direction: column; gap: 8px; }
+.convite-linha { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 0; border-top: 1px solid var(--linha-fraca); }
+.convite-linha:first-child { border-top: 0; }
+.convite-link { flex: 1; min-width: 220px; font: 12px ui-monospace, monospace; color: var(--neutro-tx); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

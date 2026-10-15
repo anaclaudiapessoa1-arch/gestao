@@ -1,8 +1,9 @@
 // ============================================================================
 // ml-comercial — a porta de dados do Comercial MinasLab (repositório gestao).
 //
-// SÓ LEITURA do CRM. A única escrita é a da votação do Destaque do Mês
-// (coleção rh_comercial_pesquisas em ml_registros), descrita mais abaixo.
+// SÓ LEITURA do CRM. As únicas escritas são as do Destaque do Mês em
+// ml_registros: a votação da equipe (rh_comercial_pesquisas) e a avaliação da
+// liderança por link (rh_comercial_convites → rh_comercial_destaque).
 // Devolve números já somados (propostas por mês e por
 // responsável) e a lista de propostas sem responsável. Nunca escreve no CRM,
 // nunca devolve dado pessoal de cliente além do nome da empresa.
@@ -20,6 +21,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { agregarPropostas, mesBR, probabilidadesPorIdade, chanceDaIdade, carteiraClientes } from "./agregar.mjs";
+import { CRITERIOS_LIDERANCA, MOTIVOS_ELIMINATORIOS, DIAS_CONVITE, conviteValido, validarAvaliacao } from "./lideranca.mjs";
 import { PERGUNTAS_EQUIPE, PERGUNTAS_GESTAO, validarVoto, aplicarVoto, resultado, gerarCodigos, normalizarCodigo, codigoValido } from "./pesquisa.mjs";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -349,6 +351,114 @@ async function pesquisaDirecao(action: string, body: Record<string, unknown>, us
   return null;
 }
 
+// ------------------------------------------------------------------ liderança por link
+// Convite = link para UMA pessoa da liderança avaliar UM mês, sem login no
+// Comercial. O segredo do link fica só no cofre (criptografado); quem abre vê
+// os nomes da lista e as PRÓPRIAS notas, nunca as de outra pessoa. Vence em
+// DIAS_CONVITE dias e a direção pode revogar.
+const COL_CONV = "rh_comercial_convites";
+const COL_DEST = "rh_comercial_destaque";
+const ALFA = "abcdefghijkmnpqrstuvwxyz23456789";
+const sorteio = (n: number) => [...bytesAleatorios(n)].map((b) => ALFA[b % 32]).join("");
+
+async function lerConviteDoLink(param: unknown) {
+  const m = String(param ?? "").match(/^(c[a-z0-9]{12})\.([a-z0-9]{24})$/);
+  if (!m) return null;
+  const { data, error } = await sb.from(T_REG).select("registro,apagado").eq("colecao", COL_CONV).eq("id", m[1]).maybeSingle();
+  if (error) throw error;
+  if (!data || data.apagado) return null;
+  const conv = data.registro;
+  const h = await hmacCodigo(m[1], `convite:${m[2]}`);
+  if (conv?.hash !== h || !conviteValido(conv)) return null;
+  return conv;
+}
+
+async function avaliacoesDoAvaliador(conv: any) {
+  const ids = (conv.pessoas || []).map((p: any) => `${conv.mes}_${p.id}_${conv.avaliador}`);
+  if (!ids.length) return {};
+  const { data, error } = await sb.from(T_REG).select("registro").eq("colecao", COL_DEST).eq("apagado", false).in("id", ids);
+  if (error) throw error;
+  return Object.fromEntries((data ?? []).map((d: any) => [d.registro.pessoaId, { notas: d.registro.notas || {}, eliminatorio: d.registro.eliminatorio || "", obs: d.registro.obs || "" }]));
+}
+
+async function liderancaPublica(action: string, body: Record<string, unknown>) {
+  const conv = await lerConviteDoLink(body.convite);
+  if (!conv) { await espera(400); return resp({ erro: "Este link não vale mais. Peça um novo para a gestão." }, 404); }
+  if (action === "liderAbrir") {
+    return resp({ avaliadorNome: conv.avaliadorNome, mes: conv.mes, validoAte: conv.validoAte, pessoas: conv.pessoas, criterios: CRITERIOS_LIDERANCA, motivos: MOTIVOS_ELIMINATORIOS, minhas: await avaliacoesDoAvaliador(conv) });
+  }
+  const v = validarAvaliacao(conv, body);
+  if (v.erro) return resp({ erro: v.erro }, 400);
+  const agora = new Date().toISOString();
+  const { data: antes } = await sb.from(T_REG).select("registro").eq("colecao", COL_DEST).eq("id", v.limpo.id).maybeSingle();
+  const registro = { ...v.limpo, criadoEm: antes?.registro?.criadoEm || agora, atualizadoEm: agora, atualizadoPor: conv.avaliador };
+  const { error } = await sb.from(T_REG).upsert({ colecao: COL_DEST, id: v.limpo.id, registro, apagado: false, atualizado_em: agora }, { onConflict: "colecao,id" });
+  if (error) throw error;
+  return resp({ ok: true });
+}
+
+async function conviteDirecao(action: string, body: Record<string, unknown>, usuario: string) {
+  const semSegredo = async (c: any) => {
+    const { cofre, hash, ...resto } = c;
+    let link = "";
+    try { link = cofre ? `${c.id}.${(await abrirCofre({ cofre })).segredo}` : ""; } catch { link = ""; }
+    return { ...resto, link, valido: conviteValido(c) };
+  };
+  switch (action) {
+    case "conviteContas": {
+      // Só nome e usuário das contas ativas da direção (para ligar o convite ao login).
+      const { data, error } = await sb.from("ml_contas").select("usuario,nome").eq("ativo", true).eq("papel", "direcao");
+      if (error) throw error;
+      return resp({ contas: (data ?? []).map((c: any) => ({ usuario: c.usuario, nome: c.nome })) });
+    }
+    case "conviteListar": {
+      const { data, error } = await sb.from(T_REG).select("registro").eq("colecao", COL_CONV).eq("apagado", false);
+      if (error) throw error;
+      const itens = await Promise.all((data ?? []).map((d: any) => semSegredo(d.registro)));
+      return resp({ itens: itens.sort((a: any, b: any) => String(b.criadoEm).localeCompare(String(a.criadoEm))) });
+    }
+    case "conviteCriar": {
+      const mes = String(body.mes ?? "");
+      const avaliadorNome = String(body.avaliadorNome ?? "").replace(/\s+/g, " ").trim().slice(0, 60);
+      const login = String(body.avaliador ?? "").trim().toLowerCase();
+      const pessoas = listaPessoas(body.pessoas, 80);
+      if (!/^\d{4}-\d{2}$/.test(mes) || !avaliadorNome) return resp({ erro: "Informe o mês e quem vai avaliar." }, 400);
+      if (!pessoas.length) return resp({ erro: "Escolha quem será avaliado." }, 400);
+      let avaliador = "";
+      if (login) {
+        const { data } = await sb.from("ml_contas").select("usuario").eq("usuario", login).eq("ativo", true).maybeSingle();
+        if (!data) return resp({ erro: "Esse login não existe ou está inativo." }, 400);
+        avaliador = login;
+      } else {
+        avaliador = "link:" + avaliadorNome.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      }
+      if (avaliador === usuario) return resp({ erro: "Você já avalia pelo sistema; o link é para outra pessoa da liderança." }, 400);
+      const id = "c" + sorteio(12);
+      const segredo = sorteio(24);
+      const agora = new Date();
+      const conv = {
+        id, mes, avaliador, avaliadorNome, pessoas, status: "ativo", criadoEm: agora.toISOString(), criadoPor: usuario,
+        validoAte: new Date(agora.getTime() + DIAS_CONVITE * 864e5).toISOString(),
+        hash: await hmacCodigo(id, `convite:${segredo}`), cofre: await fecharCofre({ segredo }),
+      };
+      const { error } = await sb.from(T_REG).insert({ colecao: COL_CONV, id, registro: conv, apagado: false, atualizado_em: agora.toISOString() });
+      if (error) throw error;
+      return resp({ convite: await semSegredo(conv) });
+    }
+    case "conviteRevogar": {
+      const id = String(body.id ?? "");
+      const { data, error } = await sb.from(T_REG).select("registro").eq("colecao", COL_CONV).eq("id", id).maybeSingle();
+      if (error) throw error;
+      if (!data) return resp({ erro: "Link não encontrado." }, 404);
+      const reg = { ...data.registro, status: "revogado", revogadoEm: new Date().toISOString(), revogadoPor: usuario };
+      const { error: e2 } = await sb.from(T_REG).update({ registro: reg, atualizado_em: new Date().toISOString() }).eq("colecao", COL_CONV).eq("id", id);
+      if (e2) throw e2;
+      return resp({ convite: await semSegredo(reg) });
+    }
+  }
+  return null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return resp({ erro: "Use POST." }, 405);
@@ -365,6 +475,9 @@ Deno.serve(async (req) => {
   if (action === "votoAbrir" || action === "votoEnviar") {
     try { return await votar(action, body); } catch (e) { console.error("ml-comercial voto", e); return resp({ erro: "O servidor falhou agora. Tente de novo em instantes." }, 500); }
   }
+  if (action === "liderAbrir" || action === "liderSalvar") {
+    try { return await liderancaPublica(action, body); } catch (e) { console.error("ml-comercial lider", e); return resp({ erro: "O servidor falhou agora. Tente de novo em instantes." }, 500); }
+  }
 
   const m = String(req.headers.get("authorization") ?? "").match(/^Bearer\s+(.+)$/i);
   const cracha = m ? await verificarJwt(m[1]) : null;
@@ -376,6 +489,10 @@ Deno.serve(async (req) => {
   try {
     if (action.startsWith("pesquisa")) {
       const r = await pesquisaDirecao(action, body, usuario);
+      if (r) return r;
+    }
+    if (action.startsWith("convite")) {
+      const r = await conviteDirecao(action, body, usuario);
       if (r) return r;
     }
     switch (action) {

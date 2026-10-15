@@ -1,11 +1,11 @@
 // Destaque do Mês (para toda a MinasLab): votação anônima da equipe por link,
 // avaliação da liderança e o ranking pelo modelo híbrido (equipe 40% +
 // liderança 60%, as duas de 0 a 10). Também mostra como a equipe avalia a gestão.
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useBase, useCRM } from "../hooks/base.jsx";
 import { Card, Chip, Cabecalho, Modal, Abas, Paginacao, usePaginacao, iniciais } from "../components/ui.jsx";
 import { SeletorMes } from "../components/Layout.jsx";
-import { listarPesquisas, criarPesquisa, maisCodigos, mudarStatus, apagarPesquisa, linkVotacao } from "../services/pesquisa.js";
+import { listarPesquisas, criarPesquisa, maisCodigos, mudarStatus, apagarPesquisa, linkVotacao, contasDirecao, listarConvites, criarConvite, revogarConvite, linkLideranca } from "../services/pesquisa.js";
 import { CRITERIOS_LIDERANCA, MOTIVOS_ELIMINATORIOS, PESOS_PADRAO, rankingDestaque, podio, mediaLideranca } from "../lib/destaque.js";
 import { PERGUNTAS_EQUIPE, PERGUNTAS_GESTAO } from "../../supabase/functions/ml-comercial/pesquisa.mjs";
 import { mesLongo, mesNome, dataCurta, numero } from "../lib/format.js";
@@ -283,6 +283,7 @@ function Lideranca() {
   return (
     <>
       <div className="aviso marca peq">10 critérios de 0 a 5 (a mesma régua da planilha). No ranking a nota vira 0 a 10. Se mais de uma pessoa da liderança avaliar, vale a média. Faltas justificadas e atestados não entram na nota.</div>
+      <ConvitesLideranca mes={mes} pessoas={pessoas} />
       <Card semPad>
         <div className="card-cab"><h2>Avaliações de {mesNome(mes)}</h2><span className="suave peq">você avaliou {feitas} de {pessoas.length}</span></div>
         <div className="tabela-caixa">
@@ -312,6 +313,103 @@ function Lideranca() {
       </Card>
       {ficha && <FichaLideranca {...ficha} mes={mes} aoFechar={() => setFicha(null)} />}
     </>
+  );
+}
+
+// Link para outra pessoa da liderança avaliar sem entrar no Comercial.
+function ConvitesLideranca({ mes, pessoas }) {
+  const eu = getSessao()?.usuario || "";
+  const [lista, setLista] = useState(null);
+  const [erro, setErro] = useState("");
+  const [novo, setNovo] = useState(false);
+  const [copiado, setCopiado] = useState("");
+  const carregar = () => listarConvites().then(setLista).catch((e) => setErro(e.message));
+  useEffect(() => { carregar(); }, []);
+  const doMes = (lista || []).filter((c) => c.mes === mes && c.status === "ativo");
+  const copiar = async (c) => {
+    const url = linkLideranca(c.link);
+    try { await navigator.clipboard.writeText(url); } catch { window.prompt("Copie o link:", url); }
+    setCopiado(c.id); setTimeout(() => setCopiado(""), 2000);
+  };
+  const revogar = async (c) => {
+    if (!window.confirm(`Desativar o link de ${c.avaliadorNome}? As notas que ela já deu continuam valendo.`)) return;
+    try { await revogarConvite(c.id); carregar(); } catch (e) { setErro(e.message); }
+  };
+  return (
+    <Card>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <div>
+          <h2 style={{ fontSize: 16 }}>Link para outra pessoa da liderança</h2>
+          <div className="suave peq">Ela avalia {mesNome(mes)} pelo celular, sem entrar no sistema. Só vê os nomes e as próprias notas.</div>
+        </div>
+        <button type="button" className="btn claro" onClick={() => setNovo(true)} disabled={!pessoas.length}>Criar link de avaliação</button>
+      </div>
+      {erro && <div className="aviso ruim" style={{ marginTop: 12 }}>{erro}</div>}
+      {doMes.length > 0 && (
+        <div className="convites" style={{ marginTop: 12 }}>
+          {doMes.map((c) => (
+            <div key={c.id} className="convite-linha">
+              <b style={{ fontWeight: 600 }}>{c.avaliadorNome}</b>
+              <span className="convite-link">{linkLideranca(c.link)}</span>
+              <span className="suave peq">vale até {new Date(c.validoAte).toLocaleDateString("pt-BR")}</span>
+              <button type="button" className="btn mini" onClick={() => copiar(c)}>{copiado === c.id ? "Copiado!" : "Copiar link"}</button>
+              <button type="button" className="btn mini perigo" onClick={() => revogar(c)}>Desativar</button>
+            </div>
+          ))}
+        </div>
+      )}
+      {novo && <NovoConvite mes={mes} pessoas={pessoas} eu={eu} aoFechar={(c) => { setNovo(false); if (c) carregar(); }} />}
+    </Card>
+  );
+}
+
+function NovoConvite({ mes, pessoas, eu, aoFechar }) {
+  const [contas, setContas] = useState([]);
+  const [login, setLogin] = useState("");
+  const [nome, setNome] = useState("");
+  const [erro, setErro] = useState("");
+  const [criado, setCriado] = useState(null);
+  const [salvando, setSalvando] = useState(false);
+  useEffect(() => { contasDirecao().then((cs) => setContas(cs.filter((c) => c.usuario !== eu))).catch(() => {}); }, [eu]);
+  const titulo = (s) => String(s || "").toLowerCase().replace(/(^|\s)(\S)/g, (m, a, b) => a + b.toUpperCase());
+  const escolher = (u) => { setLogin(u); const c = contas.find((x) => x.usuario === u); if (c) setNome(titulo(c.nome)); };
+  const criar = async () => {
+    setErro(""); setSalvando(true);
+    try { setCriado(await criarConvite({ mes, avaliador: login, avaliadorNome: nome.trim(), pessoas: pessoas.map((p) => ({ id: p.id, nome: p.nome })) })); }
+    catch (e) { setErro(e.message); } finally { setSalvando(false); }
+  };
+  const url = criado ? linkLideranca(criado.link) : "";
+  return (
+    <Modal titulo={`Link de avaliação · ${mesNome(mes)}`} aoFechar={() => aoFechar(criado)}>
+      {criado ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div className="aviso ok">Link criado para {criado.avaliadorNome}. Mande pelo WhatsApp ou e-mail; vale até {new Date(criado.validoAte).toLocaleDateString("pt-BR")}.</div>
+          <input className="entrada" readOnly value={url} onFocus={(e) => e.target.select()} />
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            <button type="button" className="btn claro" onClick={() => aoFechar(criado)}>Fechar</button>
+            <button type="button" className="btn" onClick={() => navigator.clipboard?.writeText(url)}>Copiar link</button>
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div className="campo">
+            <label htmlFor="cv-login">Quem vai avaliar</label>
+            <select id="cv-login" className="entrada" value={login} onChange={(e) => escolher(e.target.value)}>
+              <option value="">Pessoa sem login no painel</option>
+              {contas.map((c) => <option key={c.usuario} value={c.usuario}>{titulo(c.nome)} ({c.usuario})</option>)}
+            </select>
+            <span className="suave peq">Com o login do painel, as notas ficam no nome dela e, se um dia ela entrar no Comercial, aparecem como “Sua avaliação”.</span>
+          </div>
+          <div className="campo"><label htmlFor="cv-nome">Nome que aparece</label><input id="cv-nome" className="entrada" value={nome} maxLength={60} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Lidyane" /></div>
+          <div className="suave peq">Vai avaliar {pessoas.length} pessoa(s): {pessoas.map((p) => p.nome.split(" ")[0]).join(", ")}.</div>
+          {erro && <div className="aviso ruim">{erro}</div>}
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            <button type="button" className="btn claro" onClick={() => aoFechar(null)}>Cancelar</button>
+            <button type="button" className="btn" disabled={!nome.trim() || salvando} onClick={criar}>{salvando ? "Criando…" : "Criar link"}</button>
+          </div>
+        </div>
+      )}
+    </Modal>
   );
 }
 

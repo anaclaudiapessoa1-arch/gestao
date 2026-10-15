@@ -37,3 +37,16 @@ export function linkVotacao(id, codigo = "") {
   const base = `${window.location.origin}${window.location.pathname}`;
   return `${base}#/votar/${id}${codigo ? `/${codigo}` : ""}`;
 }
+
+// ---- Avaliação da liderança por link (convite) ----
+export const contasDirecao = () => direcao("conviteContas").then((r) => r.contas || []);
+export const listarConvites = () => direcao("conviteListar").then((r) => r.itens || []);
+export const criarConvite = (dados) => direcao("conviteCriar", dados).then((r) => r.convite);
+export const revogarConvite = (id) => direcao("conviteRevogar", { id }).then((r) => r.convite);
+export const abrirLideranca = (convite) => publico("liderAbrir", { convite });
+export const salvarLideranca = (convite, ficha) => publico("liderSalvar", { convite, ...ficha });
+
+/** Endereço do link de avaliação da liderança. */
+export function linkLideranca(link) {
+  return `${window.location.origin}${window.location.pathname}#/liderar/${link}`;
+}

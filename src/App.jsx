@@ -21,6 +21,7 @@ import Treinamentos from "./pages/Treinamentos.jsx";
 import Decisoes from "./pages/Decisoes.jsx";
 import Funcoes from "./pages/Funcoes.jsx";
 import Votar from "./pages/Votar.jsx";
+import Liderar from "./pages/Liderar.jsx";
 import Destaque from "./pages/Destaque.jsx";
 
 const TELAS = {
@@ -56,6 +57,8 @@ export default function App() {
   useEffect(() => aoMudarSessao(() => setSessao(getSessao())), []);
   // Votação do Destaque do Mês: pública, sem login e sem ler sessão alguma.
   if (tela === "votar") return <Votar key={param} param={param} />;
+  // Avaliação da liderança por link: pública, só com o segredo do convite.
+  if (tela === "liderar") return <Liderar key={param} param={param} />;
   if (!sessao) return <Login />;
   return (
     <BaseProvider key={sessao.usuario}>
