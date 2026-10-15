@@ -558,3 +558,37 @@ tr:last-child td { border-bottom: 0; }
 .lab-barras > div.atual { height: 14px; background: var(--marca); }
 .lab-barras em { position: absolute; left: calc(100% + 6px); top: 50%; transform: translateY(-50%); font-style: normal; font-size: 12px; font-weight: 600; }
 @media (max-width: 560px) { .lab-setor { grid-template-columns: 1fr; } }
+
+/* ---------- certificado de reconhecimento (A4 deitado; medidas em cqw) ---------- */
+.cert { container-type: inline-size; width: 100%; }
+.cert-folha { position: relative; aspect-ratio: 297 / 210; background: #fff; border: .32cqw solid #1fb5a8; outline: 3.2cqw solid #233a48; margin: 3.2cqw; width: calc(100% - 6.4cqw); box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: #233a48; font-family: Poppins, sans-serif; padding: 3cqw 8cqw; }
+.cert-canto { position: absolute; width: 3.6cqw; height: 3.6cqw; box-sizing: border-box; }
+.cert-canto.a { left: -.32cqw; top: -.32cqw; border: .55cqw solid #233a48; background: #fff; }
+.cert-canto.b { right: .25cqw; bottom: .25cqw; border-right: .55cqw solid #233a48; border-bottom: .55cqw solid #233a48; }
+.cert-logo { width: 15.5cqw; height: auto; }
+.cert-sublogo { font-size: .85cqw; letter-spacing: .03em; text-transform: uppercase; color: #6b7a86; margin-top: .9cqw; }
+.cert-titulo { font: 700 3.9cqw/1.1 Montserrat, Poppins, sans-serif; text-transform: uppercase; letter-spacing: .01em; margin-top: 3.6cqw; }
+.cert-selo { display: inline-flex; align-items: center; gap: .5cqw; margin-top: 2.2cqw; padding: .75cqw 1.7cqw; border: 1px solid #1fb5a8; border-radius: 99cqw; background: #effaf8; color: #1fa99d; font: 600 1.15cqw Poppins, sans-serif; letter-spacing: .14em; text-transform: uppercase; }
+.cert-trofeu { width: 1.25cqw; height: 1.25cqw; }
+.cert-apresentado { margin-top: 3.4cqw; font-size: 1.5cqw; color: #66768a; }
+.cert-nome { font: 700 2.9cqw/1.2 Montserrat, Poppins, sans-serif; margin-top: 1.2cqw; padding-bottom: 1.4cqw; position: relative; }
+.cert-nome::after { content: ""; position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); width: max(29cqw, 100%); height: .28cqw; background: #1fb5a8; }
+.cert-texto { margin-top: 2.6cqw; max-width: 68cqw; font-size: 1.3cqw; line-height: 2; color: #4f5f70; }
+.cert-texto b { color: #233a48; font-weight: 600; }
+.cert-assinatura { display: flex; flex-direction: column; align-items: center; margin-top: 3.6cqw; }
+.cert-assinatura span { width: 23cqw; height: 1px; background: #8494a3; margin-bottom: .9cqw; }
+.cert-assinatura b { font-weight: 600; font-size: 1.15cqw; }
+.cert-assinatura em { font-style: normal; font-size: .95cqw; color: #98a5b1; margin-top: .2cqw; }
+.cert-previa { max-width: 820px; margin: 0 auto; background: #233a48; border-radius: 8px; overflow: hidden; }
+.cert-previa .cert-folha { outline: none; }
+.cert-previa .cert { padding: 0; }
+@media print {
+  .impressao .cert-pagina { width: 297mm; height: 209mm; overflow: hidden; background: #233a48; }
+  .impressao .cert-pagina .cert-folha { margin: 9.5mm; width: calc(297mm - 19mm); height: calc(209mm - 19mm); aspect-ratio: auto; outline: none; }
+  .conteudo:has(.cert-pagina) { padding: 0 !important; }
+  .miolo:has(.cert-pagina) { max-width: none !important; margin: 0 !important; display: block !important; }
+  .card:has(> .impressao .cert-pagina) { padding: 0 !important; border: 0 !important; box-shadow: none !important; }
+  .card:has(> .impressao .cert-pagina) > *:not(.impressao), .card:has(> .impressao .cert-pagina) > style { display: none !important; }
+  .impressao:has(.cert-pagina) { position: static !important; }
+  .cert-pagina, .cert-folha, .cert-selo, .cert-nome::after, .cert-canto, .cert-assinatura span { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

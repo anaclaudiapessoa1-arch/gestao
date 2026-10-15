@@ -62,3 +62,10 @@ export function numero(v) {
   const n = parseFloat(String(v).replace(",", "."));
   return isNaN(n) ? null : n;
 }
+
+/** "MARIA DA SILVA" → "Maria da Silva" (para certificados e documentos). */
+export function nomeProprio(nome) {
+  return String(nome || "").trim().replace(/\s+/g, " ").toLowerCase()
+    .replace(/(^|[\s'-])(\p{L})/gu, (m, a, b) => a + b.toUpperCase())
+    .replace(/(?<=\s)(Da|De|Do|Das|Dos|E)(?=\s)/g, (m) => m.toLowerCase());
+}

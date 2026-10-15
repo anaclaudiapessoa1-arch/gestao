@@ -145,3 +145,10 @@ test("equipe do mês segue entrada e saída", async () => {
   assert.equal(naEquipeNoMes(novo, "2026-08"), true);
   assert.equal(naEquipeNoMes({ ativo: true }, "2025-01"), true);
 });
+
+import { nomeProprio } from "./format.js";
+test("nome próprio para documentos", () => {
+  assert.equal(nomeProprio("MARIA DA SILVA SOUZA"), "Maria da Silva Souza");
+  assert.equal(nomeProprio("  joão  dos santos e souza "), "João dos Santos e Souza");
+  assert.equal(nomeProprio("ÉRICA D'ÁVILA"), "Érica D'Ávila");
+});

@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useBase, useCRM } from "../hooks/base.jsx";
 import { Card, Cabecalho, Chip, Abas } from "../components/ui.jsx";
 import { Estudio } from "../components/Estudio.jsx";
+import { ListaAtas } from "../components/ListaAtas.jsx";
 import { SeletorMes } from "../components/Layout.jsx";
 import { Orientacao } from "../components/Orientacao.jsx";
 import { Slides, BarrasSlide } from "../components/Slides.jsx";
@@ -29,13 +30,14 @@ const trimestreDe = (mes) => { const [a, m] = mes.split("-").map(Number); return
 
 export default function Reunioes() {
   const [aba, setAba] = useState("geral");
+  const com = useBase().setor === "comercial";
   return (
     <>
-      <Cabecalho sobre="Reuniões e apresentações" titulo={aba === "geral" ? "Reunião mensal e apresentações" : "Rituais do comercial"} sub={aba === "geral" ? "Modelos no estilo MinasLab: os números do CRM, o ranking e o destaque entram sozinhos. Você completa o que mudou e apresenta." : "Montadas com os números do período, com roteiro de fala e ata."}>
+      <Cabecalho sobre="Reuniões e apresentações" titulo={aba === "geral" ? "Reunião mensal e apresentações" : aba === "atas" ? "Atas de reunião" : "Rituais do comercial"} sub={aba === "atas" ? "Atas no modelo FM-LAB-001, geradas a partir das apresentações. Baixe em Word para imprimir e colher as assinaturas." : aba === "geral" ? "Modelos no estilo MinasLab: os números do CRM, o ranking e o destaque entram sozinhos. Você completa o que mudou e apresenta." : "Montadas com os números do período, com roteiro de fala e ata."}>
         {aba === "rituais" && <SeletorMes />}
       </Cabecalho>
-      <Abas valor={aba} aoMudar={setAba} abas={[["geral", "Reunião mensal geral e outras"], ["rituais", "Rituais do comercial"]]} />
-      {aba === "geral" ? <Estudio categoria="reuniao" /> : <Rituais />}
+      <Abas valor={aba} aoMudar={setAba} abas={[["geral", "Apresentações de reunião"], ["atas", "Atas"], ...(com ? [["rituais", "Rituais do comercial"]] : [])]} />
+      {aba === "geral" ? <Estudio categoria="reuniao" /> : aba === "atas" ? <ListaAtas /> : <Rituais />}
     </>
   );
 }

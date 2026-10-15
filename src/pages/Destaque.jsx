@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useBase, useCRM } from "../hooks/base.jsx";
 import { Card, Chip, Cabecalho, Modal, Abas, Paginacao, usePaginacao, iniciais } from "../components/ui.jsx";
+import { CartaoCertificado } from "../components/Certificado.jsx";
 import { SeletorMes } from "../components/Layout.jsx";
 import { listarPesquisas, criarPesquisa, maisCodigos, mudarStatus, apagarPesquisa, linkVotacao, contasDirecao, listarConvites, criarConvite, revogarConvite, linkLideranca } from "../services/pesquisa.js";
 import { CRITERIOS_LIDERANCA, MOTIVOS_ELIMINATORIOS, PESOS_PADRAO, rankingDestaque, podio, mediaLideranca } from "../lib/destaque.js";
@@ -519,6 +520,7 @@ function Ranking() {
         <Paginacao pag={pag} rotulo="pessoas" />
       </Card>
       <div className="suave peq">Total = equipe × {pesos.equipe}% + liderança × {pesos.lideranca}%, as duas de 0 a 10. O ranking entra sozinho na apresentação da Reunião mensal de resultados.</div>
+      <CartaoCertificado mes={mes} candidatos={top.length ? [...top, ...ranking.filter((x) => !top.some((t) => t.id === x.id))] : []} />
     </>
   );
 }

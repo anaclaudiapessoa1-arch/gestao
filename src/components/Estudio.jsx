@@ -6,6 +6,7 @@ import { useBase, useCRM } from "../hooks/base.jsx";
 import { setoresCRM } from "../services/crm.js";
 import { Card, Chip, Modal, Paginacao, usePaginacao } from "./ui.jsx";
 import { SlideML, Apresentador, ImpressaoDeck, nomeLayout } from "./Deck.jsx";
+import { CartaoAta } from "./AtaDocumento.jsx";
 import { MODELOS, LAYOUTS, ROTULOS_CAMPOS, modeloPorId, slidesDoModelo, slideEmBranco, preencher } from "../lib/modelosApresentacao.js";
 import { usePesquisas, rankingDoMes, pesosDestaque } from "../pages/Destaque.jsx";
 import { podio } from "../lib/destaque.js";
@@ -31,7 +32,7 @@ function useContexto(deck) {
     const ref = deck.ref || base.mes;
     const ant = somarMeses(ref, -1);
     const pesos = pesosDestaque(dados);
-    const valores = { mes: mesLongo(ref), mesAnterior: mesLongo(ant), ano: ref.slice(0, 4), pesoEquipe: pesos.equipe, pesoLideranca: pesos.lideranca };
+    const valores = { mes: mesLongo(ref), mesAnterior: mesLongo(ant), mesSeguinte: mesLongo(somarMeses(ref, 1)), ano: ref.slice(0, 4), pesoEquipe: pesos.equipe, pesoLideranca: pesos.lideranca };
     const indicadores = resumo ? { t: totaisMes(resumo, ref), ant: totaisMes(resumo, ant), rotulo: cap(mesNome(ref)), rotuloAnt: cap(mesNome(ant)), meta: Number(config.metaValorMensal) || 0 } : null;
     const ser = resumo ? serie(resumo, "equipe", ref, 6) : null;
     const top = precisaRanking ? podio(rankingDoMes({ dados, elenco, pesquisas: pesq.lista, mes: ref }).ranking) : [];
@@ -45,10 +46,10 @@ function useContexto(deck) {
 
 // ------------------------------------------------------------------ lista
 export function Estudio({ categoria }) {
-  const { dados, remover } = useBase();
+  const { dados, remover, setor } = useBase();
   const [aberto, setAberto] = useState(null);
   const [novo, setNovo] = useState(null);
-  const modelos = MODELOS.filter((m) => m.categoria === categoria || m.categoria === "ambos");
+  const modelos = MODELOS.filter((m) => (m.categoria === categoria || m.categoria === "ambos") && (!m.setor || m.setor === setor));
   const decks = dados.apresentacoes.filter((d) => d.categoria === categoria).sort((a, b) => String(b.atualizadoEm || b.criadoEm).localeCompare(String(a.atualizadoEm || a.criadoEm)));
   const pag = usePaginacao(decks, 6);
   const deck = decks.find((d) => d.id === aberto);
@@ -268,6 +269,7 @@ function Editor({ deck: inicial, aoVoltar }) {
       )}
 
       {(deck.categoria === "reuniao" || deck.slides.some((x) => x.layout === "compromissos")) && <AtaDeck deck={deck} aoMudar={(ata) => setDeck((d) => ({ ...d, ata }))} />}
+      {deck.categoria === "reuniao" && <CartaoAta deck={deck} ctx={ctx} aoMudar={(ataDoc) => setDeck((d) => ({ ...d, ataDoc }))} />}
       <ImpressaoDeck slides={visiveis} ctx={ctx} />
     </div>
   );
@@ -401,7 +403,7 @@ function AtaDeck({ deck, aoMudar }) {
   const add = () => { if (!f.texto.trim()) return; aoMudar([...ata, { id: novoId("i"), ...f, texto: f.texto.trim(), feito: false, em: hojeBR() }]); setF({ ...f, texto: "", dono: "", prazo: "" }); };
   return (
     <Card>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}><h2>Ata da reunião</h2><span className="suave peq">{ata.length} item(ns) · entra no slide “Próximos passos” e abre a próxima reunião</span></div>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}><h2>Compromissos e decisões</h2><span className="suave peq">{ata.length} item(ns) · entram no slide “Próximos passos”, na ata e abrem a próxima reunião</span></div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12, alignItems: "flex-end" }}>
         <div className="campo"><label htmlFor="ad-tipo">Tipo</label><select id="ad-tipo" className="entrada" value={f.tipo} onChange={(e) => setF({ ...f, tipo: e.target.value })}><option value="compromisso">Compromisso</option><option value="decisao">Decisão</option></select></div>
         <div className="campo" style={{ flex: "2 1 260px" }}><label htmlFor="ad-txt">O quê</label><input id="ad-txt" className="entrada" value={f.texto} onChange={(e) => setF({ ...f, texto: e.target.value })} onKeyDown={(e) => e.key === "Enter" && add()} /></div>
