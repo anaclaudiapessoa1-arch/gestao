@@ -1,5 +1,6 @@
-// Painel do laboratório: amostras e ensaios por setor (CRM), OS em andamento
-// atrasadas e vencendo, prazo dos laboratórios parceiros e NCs do mês.
+// Painel do laboratório: só o que a MinasLab executa. Amostras e ensaios por
+// setor (CRM), OS em andamento atrasadas e vencendo, e NCs do mês. Ensaios
+// enviados a laboratórios parceiros ficam de fora.
 // O CRM não tem a data do laudo: o prazo interno sai do vencimento da OS.
 import { useBase, useCRM } from "../hooks/base.jsx";
 import { Card, Chip, Cabecalho, Kpi, Paginacao, usePaginacao } from "../components/ui.jsx";
@@ -7,7 +8,7 @@ import { SeletorMes } from "../components/Layout.jsx";
 import { setoresCRM, labPainelCRM } from "../services/crm.js";
 import { mesLongo, mesNome, dataCurta, somarMeses, mesAtual } from "../lib/format.js";
 
-const SETORES = [["Microbiologia", "Microbiologia"], ["Físico-química", "Físico-química"], ["Campo", "Campo (in situ)"], ["Parceiros", "Laboratórios parceiros"]];
+const SETORES = [["Microbiologia", "Microbiologia"], ["Físico-química", "Físico-química"], ["Campo", "Campo (in situ)"]];
 const pctVar = (a, b) => (b ? Math.round(((a - b) / b) * 100) : null);
 
 export default function Laboratorio() {
@@ -21,6 +22,8 @@ export default function Laboratorio() {
   const osMes = p?.porMes?.[mes] || { recebidas: 0, concluidas: 0, canceladas: 0 };
   const ncsMes = dados.ncs.filter((n) => n.mes === mes);
   const pagOS = usePaginacao(p?.os?.lista || [], 8);
+  // Ensaios feitos na casa: tira os que foram para laboratórios parceiros.
+  const ensaiosCasa = (x) => Math.max(0, (x?.ensaios || 0) - (x?.porSetor?.Parceiros?.ensaios || 0));
   const max = Math.max(1, ...SETORES.flatMap(([k]) => [at.porSetor[k]?.amostras || 0, an.porSetor[k]?.amostras || 0]));
   // Mês em andamento: comparar com o mês anterior inteiro daria quedas falsas.
   const parcial = mes === mesAtual();
@@ -28,20 +31,18 @@ export default function Laboratorio() {
 
   return (
     <>
-      <Cabecalho sobre="Painel do laboratório" titulo={mesLongo(mes)} sub="Amostras e ensaios por setor, prazos das OS e dos laboratórios parceiros. Números do CRM (vindos do GerenciaLab).">
+      <Cabecalho sobre="Painel do laboratório" titulo={mesLongo(mes)} sub="Só o que é executado na MinasLab: amostras e ensaios por setor, prazos das OS e não conformidades. Números do CRM (vindos do GerenciaLab).">
         <SeletorMes />
       </Cabecalho>
       {(st.erro || lp.erro) && <div className="aviso alerta">{st.erro || lp.erro}</div>}
       <div className="grade grade-kpi">
         <Kpi rotulo={`Amostras recebidas em ${mesNome(mes)}`} valor={st.dados ? at.total : "…"} sub={parcial ? `mês em andamento · ${an.total} em ${mesNome(ant)}` : v == null ? "" : `${v >= 0 ? "▲" : "▼"} ${Math.abs(v)}% frente a ${mesNome(ant)}`} tomSub={v == null ? undefined : v >= 0 ? "ok" : "ruim"} />
-        <Kpi rotulo="Ensaios no mês" valor={st.dados ? at.ensaios : "…"} sub={an.ensaios ? `${an.ensaios} em ${mesNome(ant)}` : ""} />
+        <Kpi rotulo="Ensaios na MinasLab no mês" valor={st.dados ? ensaiosCasa(at) : "…"} sub={ensaiosCasa(an) ? `${ensaiosCasa(an)} em ${mesNome(ant)}` : ""} />
         <Kpi rotulo="OS em andamento atrasadas" valor={p ? p.os.atrasadas : "…"} sub={p ? `de ${p.os.andamento} em andamento · ${p.os.vencendo} vencem em 3 dias` : ""} tomSub={p?.os.atrasadas ? "ruim" : "ok"} />
-        <Kpi rotulo="Parceiros fora do prazo" valor={p ? p.parceiros.atrasados : "…"} sub={p ? `${p.parceiros.aguardando} aguardando resultado` : ""} tomSub={p?.parceiros.atrasados ? "ruim" : "ok"} />
         <Kpi rotulo={`Não conformidades em ${mesNome(mes)}`} valor={ncsMes.length} sub={`${ncsMes.filter((n) => n.retrabalho || /retrabalho/i.test(n.tipo)).length} com retrabalho`} />
       </div>
 
-      <div className="grade grade-2" style={{ alignItems: "start" }}>
-        <Card>
+      <Card>
           <h2>Amostras por setor</h2>
           <div className="suave peq" style={{ marginBottom: 12 }}>{mesNome(mes)} (barra cheia) × {mesNome(ant)} (barra clara). Uma amostra conta em cada setor onde teve ensaio.{parcial ? " Mês em andamento: sem comparação até o fechamento." : ""}</div>
           {!st.dados ? <div className="vazio">Lendo as amostras do CRM…</div> : SETORES.map(([k, rot]) => {
@@ -65,33 +66,7 @@ export default function Laboratorio() {
             </div>
           )}
           {p && <div className="suave peq" style={{ marginTop: 12 }}>OS recebidas em {mesNome(mes)}: {osMes.recebidas} · concluídas: {osMes.concluidas} · canceladas: {osMes.canceladas}</div>}
-        </Card>
-
-        <Card>
-          <h2>Laboratórios parceiros</h2>
-          <div className="suave peq" style={{ marginBottom: 12 }}>Do envio ao resultado, por laboratório (todo o histórico).</div>
-          {!p ? <div className="vazio">Lendo os envios do CRM…</div> : p.parceiros.porProvedor.length === 0 ? <div className="vazio">Nenhum envio registrado.</div> : (
-            <div className="tabela-caixa">
-              <table>
-                <thead><tr><th>Laboratório</th><th>Envios</th><th>Com resultado</th><th>No prazo</th><th>Média (dias)</th></tr></thead>
-                <tbody>
-                  {p.parceiros.porProvedor.map((x) => (
-                    <tr key={x.nome}><td>{x.nome}</td><td className="tnum">{x.envios}</td><td className="tnum">{x.comResultado}</td><td className="tnum">{x.comResultado ? `${Math.round((x.noPrazo / x.comResultado) * 100)}%` : "—"}</td><td className="tnum">{x.mediaDias ?? "—"}</td></tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          {p?.parceiros.lista.length > 0 && (
-            <>
-              <h3 style={{ marginTop: 16, fontSize: 14 }}>Aguardando resultado, fora do prazo</h3>
-              <div className="tabela-caixa"><table><tbody>
-                {p.parceiros.lista.slice(0, 8).map((x, i) => <tr key={i}><td>{x.provedor}</td><td className="suave">OS {x.numero}</td><td className="tnum">previsto {dataCurta(x.previsto)}</td><td><Chip tom="ruim">{x.dias} dia(s)</Chip></td></tr>)}
-              </tbody></table></div>
-            </>
-          )}
-        </Card>
-      </div>
+      </Card>
 
       <Card semPad>
         <div className="card-cab"><h2>OS em andamento com o vencimento passado</h2><span className="suave peq">Hoje, independente do mês escolhido. Sem vencimento: {p?.os.semVencimento ?? "…"}</span></div>

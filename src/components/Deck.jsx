@@ -440,10 +440,11 @@ const RENDER = {
               {lista.length ? lista.map((o, i) => <div key={i} className="dk-lab-linha"><span>{o.numero}{o.cliente ? ` · ${o.cliente}` : ""}</span><em className="desce">{o.dias} {o.dias === 1 ? "dia" : "dias"}</em></div>) : <div className="dk-lab-linha"><span>Nenhuma OS atrasada.</span></div>}
             </div>
             <div>
-              <b className="dk-lab-sub">Laboratórios parceiros</b>
-              <div className="dk-lab-linha"><span>Aguardando resultado</span><em>{d.parceiros?.aguardando ?? 0}</em></div>
-              <div className="dk-lab-linha"><span>Com previsão vencida</span><em className={d.parceiros?.atrasados ? "desce" : ""}>{d.parceiros?.atrasados ?? 0}</em></div>
-              {(d.parceiros?.porProvedor || []).slice(0, 3).map((x) => <div key={x.nome} className="dk-lab-linha"><span>{x.nome}</span><em>{x.mediaDias != null ? `${String(x.mediaDias).replace(".", ",")} dias em média` : `${x.envios} envio(s)`}</em></div>)}
+              <b className="dk-lab-sub">Ritmo de {mesCurto(p.ctx.mes)}</b>
+              <div className="dk-lab-linha"><span>OS recebidas</span><em>{m.recebidas}</em></div>
+              <div className="dk-lab-linha"><span>OS concluídas</span><em>{m.concluidas}</em></div>
+              <div className="dk-lab-linha"><span>OS canceladas</span><em>{m.canceladas ?? 0}</em></div>
+              <div className="dk-lab-linha"><span>Em andamento sem vencimento</span><em>{d.os.semVencimento ?? 0}</em></div>
             </div>
           </div>
           {p.s.texto ? <Destaque texto={p.s.texto} ctx={p.ctx} /> : <div className="dk-lab-nota">Situação no dia da reunião · prazo interno pelo vencimento da OS no CRM</div>}

@@ -120,7 +120,7 @@ const COMERCIAL = () => [
 
 const LABORATORIO = () => [
   S("capa", { titulo: "Reunião do Laboratório", subtitulo: "{mes}", texto: "MinasLab · Laboratório de Controle de Qualidade" }, "Objetivo: olhar prazos, qualidade e produção do mês, tratar as não conformidades e combinar o próximo mês."),
-  S("agenda", { titulo: "Agenda", itens: "Combinados | O que ficou da última reunião\nVolume | Amostras e ensaios por setor\nPrazos | OS atrasadas e laboratórios parceiros\nQualidade | Não conformidades e retrabalho\nPróximo mês | Metas e compromissos" }),
+  S("agenda", { titulo: "Agenda", itens: "Combinados | O que ficou da última reunião\nVolume | Amostras e ensaios por setor\nPrazos | OS atrasadas e ritmo do mês\nQualidade | Não conformidades e retrabalho\nPróximo mês | Metas e compromissos" }),
   S("combinados", { titulo: "O que combinamos na última reunião" }, "Item por item: feito, não feito e por quê. O que não foi feito ganha nova data."),
   S("setores", { titulo: "Amostras e ensaios por setor · {mes}", texto: "" }, "Onde o volume cresceu, reconheça a equipe; onde caiu, explique o motivo (sazonalidade, cliente, coleta)."),
   S("labPrazos", { titulo: "Prazos e ordens de serviço", texto: "" }, "Comece pelas OS mais atrasadas: o que está travando cada uma e quem resolve até quando. Anote como compromisso."),

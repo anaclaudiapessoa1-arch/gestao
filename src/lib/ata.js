@@ -96,7 +96,6 @@ export function itemDoSlide(s, ctx = {}) {
         corpo: junta(
           `No dia da reunião havia ${qtd(d.os.andamento, "ordem de serviço em andamento", "ordens de serviço em andamento")}, ${d.os.atrasadas ? `${d.os.atrasadas} com prazo vencido` : "nenhuma com prazo vencido"} e ${d.os.vencendo} vencendo nos próximos 3 dias.`,
           `- Em ${mesLongo(ctx.mes).toLowerCase()}: ${qtd(m.recebidas, "OS recebida", "OS recebidas")} e ${qtd(m.concluidas, "concluída", "concluídas")}`,
-          `- Laboratórios parceiros: ${d.parceiros?.aguardando ?? 0} aguardando resultado, ${d.parceiros?.atrasados ?? 0} com previsão vencida`,
           T(s.texto, ctx),
         ),
       };
