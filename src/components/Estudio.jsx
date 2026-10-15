@@ -9,7 +9,7 @@ import { SlideML, Apresentador, ImpressaoDeck, nomeLayout } from "./Deck.jsx";
 import { MODELOS, LAYOUTS, ROTULOS_CAMPOS, modeloPorId, slidesDoModelo, slideEmBranco, preencher } from "../lib/modelosApresentacao.js";
 import { usePesquisas, rankingDoMes, pesosDestaque } from "../pages/Destaque.jsx";
 import { podio } from "../lib/destaque.js";
-import { reduzirFoto } from "../lib/foto.js";
+import { reduzirFoto, reduzirImagem } from "../lib/foto.js";
 import { lerEscala, mesesComNomes } from "../lib/escala.js";
 import { lerXlsx } from "../lib/xlsxLeve.js";
 import { totaisMes, serie } from "../lib/calculos.js";
@@ -185,6 +185,16 @@ function Editor({ deck: inicial, aoVoltar }) {
     [sl[sel], sl[j]] = [sl[j], sl[sel]];
     trocarSlides(sl, j);
   };
+  const moverPara = (de, para) => {
+    if (para < 0 || para >= deck.slides.length || para === de) return;
+    const sl = [...deck.slides];
+    const [x] = sl.splice(de, 1);
+    sl.splice(para, 0, x);
+    trocarSlides(sl, para);
+  };
+  const [arrastando, setArrastando] = useState(null);
+  const origem = useRef(null); // posição de onde saiu o slide arrastado (imediata, sem esperar o estado)
+  const [posicao, setPosicao] = useState("");
   const duplicar = () => { const sl = [...deck.slides]; sl.splice(sel + 1, 0, { ...sl[sel], id: novoId("s") }); trocarSlides(sl, sel + 1); };
   const apagar = () => { if (deck.slides.length > 1 && window.confirm("Apagar este slide?")) trocarSlides(deck.slides.filter((_, k) => k !== sel), Math.max(0, sel - 1)); };
   const inserir = (layout) => { const sl = [...deck.slides]; sl.splice(sel + 1, 0, slideEmBranco(layout)); trocarSlides(sl, sel + 1); };
@@ -223,7 +233,12 @@ function Editor({ deck: inicial, aoVoltar }) {
         <div className="estudio-corpo">
           <div className="estudio-lista" aria-label="Slides">
             {deck.slides.map((x, k) => (
-              <button key={x.id} type="button" className={`mini-slide${k === sel ? " ativa" : ""}${x.oculto ? " oculto" : ""}`} onClick={() => setSel(k)} aria-label={`Slide ${k + 1}: ${nomeLayout(x.layout)}`}>
+              <button key={x.id} type="button" draggable
+                onDragStart={(e) => { origem.current = k; setArrastando(k); e.dataTransfer.effectAllowed = "move"; try { e.dataTransfer.setData("text/plain", String(k)); } catch { /* ok */ } }}
+                onDragOver={(e) => { if (origem.current != null) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; } }}
+                onDrop={(e) => { e.preventDefault(); if (origem.current != null) moverPara(origem.current, k); origem.current = null; setArrastando(null); }}
+                onDragEnd={() => { origem.current = null; setArrastando(null); }}
+                className={`mini-slide${k === sel ? " ativa" : ""}${x.oculto ? " oculto" : ""}${arrastando === k ? " arrastando" : ""}`} onClick={() => setSel(k)} aria-label={`Slide ${k + 1}: ${nomeLayout(x.layout)}`} title="Arraste para mudar a ordem">
                 <span className="mini-num">{k + 1}</span>
                 <SlideML s={x} ctx={ctx} />
               </button>
@@ -236,6 +251,11 @@ function Editor({ deck: inicial, aoVoltar }) {
             <div className="estudio-acoes">
               <button type="button" className="btn claro mini" onClick={() => mover(-1)} disabled={sel === 0}>↑ Subir</button>
               <button type="button" className="btn claro mini" onClick={() => mover(1)} disabled={sel >= deck.slides.length - 1}>↓ Descer</button>
+              <form style={{ display: "flex", gap: 4, alignItems: "center" }} onSubmit={(e) => { e.preventDefault(); const n = Number(posicao); if (n >= 1) moverPara(sel, Math.min(n, deck.slides.length) - 1); setPosicao(""); }}>
+                <label className="peq suave" htmlFor="mover-para">Mover para</label>
+                <input id="mover-para" className="entrada" type="number" min={1} max={deck.slides.length} style={{ width: 64, padding: "4px 6px" }} value={posicao} onChange={(e) => setPosicao(e.target.value)} placeholder={String(sel + 1)} />
+                <button type="submit" className="btn claro mini" disabled={!posicao}>Ir</button>
+              </form>
               <button type="button" className="btn claro mini" onClick={duplicar}>Duplicar</button>
               <button type="button" className="btn claro mini" onClick={() => mudarSlide({ oculto: !s.oculto })}>{s?.oculto ? "Mostrar na apresentação" : "Esconder na apresentação"}</button>
               <button type="button" className="btn perigo mini" onClick={apagar} disabled={deck.slides.length <= 1}>Apagar</button>
@@ -258,7 +278,12 @@ function NovoSlide({ aoEscolher }) {
   return (
     <select className="entrada peq" aria-label="Adicionar slide" value={v} onChange={(e) => { if (e.target.value) { aoEscolher(e.target.value); setV(""); } }}>
       <option value="">+ Adicionar slide…</option>
-      {Object.entries(LAYOUTS).map(([id, l]) => <option key={id} value={id}>{l.nome}</option>)}
+      <optgroup label="Livres (você escreve)">
+        {["topicos", "colunas", "tabela", "grafico", "imagem", "numero", "fluxo", "agenda", "frase", "aviso", "capa", "encerramento"].filter((id) => LAYOUTS[id]).map((id) => <option key={id} value={id}>{LAYOUTS[id].nome}</option>)}
+      </optgroup>
+      <optgroup label="Automáticos (dados do sistema)">
+        {Object.entries(LAYOUTS).filter(([, l]) => l.auto || l.campos.includes("escala")).map(([id, l]) => <option key={id} value={id}>{l.nome}</option>)}
+      </optgroup>
     </select>
   );
 }
@@ -280,6 +305,11 @@ function Campos({ s, aoMudar }) {
           <label htmlFor={`c-${c}`}>{ROTULOS_CAMPOS[c] || c}</label>
           {c === "foto" ? <Foto valor={s.foto} aoMudar={(foto) => aoMudar({ foto })} />
             : c === "escala" ? <CampoEscala s={s} aoMudar={aoMudar} />
+            : c === "imagem" ? <CampoImagem valor={s.imagem} aoMudar={(imagem) => aoMudar({ imagem })} />
+            : c === "tipoGrafico" ? (
+              <select id="c-tipoGrafico" className="entrada" value={s.tipoGrafico || "colunas"} onChange={(e) => aoMudar({ tipoGrafico: e.target.value })}>
+                <option value="colunas">Colunas</option><option value="barras">Barras deitadas</option><option value="linha">Linha (evolução)</option><option value="pizza">Pizza (partes de um todo)</option>
+              </select>)
             : longos.includes(c) ? <textarea id={`c-${c}`} className="entrada mono" rows={c === "itens" || s.layout === "topicos" || s.layout === "numero" ? 8 : 3} value={s[c] || ""} onChange={(e) => aoMudar({ [c]: e.target.value })} />
             : <input id={`c-${c}`} className="entrada" value={s[c] || ""} onChange={(e) => aoMudar({ [c]: e.target.value })} />}
           {l.ajuda?.[c] && <span className="suave peq">{l.ajuda[c]}</span>}
@@ -290,6 +320,25 @@ function Campos({ s, aoMudar }) {
         <textarea id="c-notas" className="entrada" rows={3} value={s.notas || ""} onChange={(e) => aoMudar({ notas: e.target.value })} />
       </div>
       <div className="suave peq">Marcadores: {"{mes}"}, {"{mesAnterior}"}, {"{ano}"} viram o mês da apresentação.</div>
+    </div>
+  );
+}
+
+/** Imagem do slide (mantém a proporção, reduzida no navegador). */
+function CampoImagem({ valor, aoMudar }) {
+  const [erro, setErro] = useState("");
+  const escolher = (e) => {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    reduzirImagem(f).then((url) => { aoMudar(url); setErro(""); }).catch((ex) => setErro(ex.message));
+  };
+  return (
+    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+      {valor && <img src={valor} alt="" style={{ height: 48, borderRadius: 6, border: "1px solid var(--linha-fraca)" }} />}
+      <input type="file" accept="image/*" onChange={escolher} aria-label="Imagem do slide" className="peq" />
+      {valor && <button type="button" className="btn claro mini" onClick={() => aoMudar("")}>Tirar imagem</button>}
+      {erro && <span className="peq" style={{ color: "var(--ruim)" }}>{erro}</span>}
     </div>
   );
 }

@@ -18,6 +18,8 @@ export const LAYOUTS = {
   numero: { nome: "Número em destaque", campos: ["titulo", "numero", "rotulo", "texto", "destaque"] },
   fluxo: { nome: "Fluxo / linha do tempo", campos: ["titulo", "itens", "destaque"], ajuda: { itens: "Uma etapa por linha: Etapa | detalhe. Termine com ! para marcar em vermelho." } },
   tabela: { nome: "Tabela", campos: ["titulo", "itens", "destaque"], ajuda: { itens: "Colunas separadas por |. A primeira linha é o cabeçalho." } },
+  grafico: { nome: "Gráfico (dados livres)", campos: ["titulo", "tipoGrafico", "texto", "itens", "destaque"], ajuda: { itens: "Uma linha por item: Rótulo | valor. Para comparar séries, a 1ª linha é o cabeçalho: Mês | Micro | FQ", texto: "Subtítulo (opcional)" } },
+  imagem: { nome: "Imagem (print, foto, gráfico de outro sistema)", campos: ["titulo", "imagem", "texto"], ajuda: { texto: "Legenda (opcional)" } },
   aviso: { nome: "Aviso (fundo escuro)", campos: ["titulo", "texto", "destaque"] },
   frase: { nome: "Frase de impacto", campos: ["titulo", "frase", "texto"] },
   indicadores: { nome: "Indicadores comerciais (CRM)", auto: true, campos: ["titulo", "amostras", "amostrasAnterior", "texto"], ajuda: { amostras: "Em branco = total do CRM (amostras recebidas no mês). Preencha só para corrigir.", texto: "Comentário da gestão sobre o mês" } },
@@ -34,7 +36,7 @@ export const LAYOUTS = {
 export const ROTULOS_CAMPOS = {
   titulo: "Título", subtitulo: "Subtítulo", texto: "Texto", itens: "Itens", destaque: "Caixa de destaque",
   numero: "Número grande", rotulo: "Legenda do número", frase: "Frase", nome: "Nome", setor: "Setor",
-  foto: "Foto", escala: "Escala do mês", amostras: "Amostras analisadas no mês", amostrasAnterior: "Amostras no mês anterior",
+  foto: "Foto", imagem: "Imagem", tipoGrafico: "Tipo de gráfico", escala: "Escala do mês", amostras: "Amostras analisadas no mês", amostrasAnterior: "Amostras no mês anterior",
 };
 
 const S = (layout, campos = {}, notas = "") => ({ layout, ...campos, notas });
@@ -119,7 +121,13 @@ export function slidesDoModelo(id) {
 }
 
 export function slideEmBranco(layout) {
-  const base = { capa: { titulo: "Título" }, encerramento: { titulo: "Obrigado!" } }[layout] || { titulo: LAYOUTS[layout]?.nome || "Slide" };
+  const base = {
+    capa: { titulo: "Título" }, encerramento: { titulo: "Obrigado!" },
+    grafico: { titulo: "Título do gráfico", tipoGrafico: "colunas", itens: "Item A | 10\nItem B | 20\nItem C | 15" },
+    tabela: { titulo: "Título da tabela", itens: "Coluna 1 | Coluna 2 | Coluna 3\nlinha | valor | valor" },
+    topicos: { titulo: "Título", texto: "Primeiro ponto\nSegundo ponto" },
+    imagem: { titulo: "Título", imagem: "" },
+  }[layout] || { titulo: LAYOUTS[layout]?.nome || "Slide" };
   return { id: novoId("s"), layout, notas: "", ...base };
 }
 

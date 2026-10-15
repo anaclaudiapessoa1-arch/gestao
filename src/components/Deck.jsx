@@ -6,6 +6,78 @@ import { useEffect, useRef, useState } from "react";
 import { LAYOUTS, linhas, blocos, pares, preencher } from "../lib/modelosApresentacao.js";
 import { brl, pct, mesCurto, dataCurta, mesLongo } from "../lib/format.js";
 import { mesesComNomes, semanasUteis } from "../lib/escala.js";
+import { lerDados, fmtNum } from "../lib/grafico.js";
+
+const CORES = ["#0f766e", "#5eead4", "#1f3a4d", "#f59e0b", "#94a3b8", "#be185d"];
+
+function Grafico({ tipo, dados }) {
+  const { series, rotulos, valores } = dados;
+  if (!rotulos.length) return <Aguardando texto="Escreva os dados no editor: uma linha por item, “Rótulo | valor”." />;
+  const max = Math.max(1, ...valores.flat());
+  const legenda = series.length > 1 && <div className="dk-legenda" style={{ marginTop: ".8cqw" }}>{series.map((n, k) => <span key={n}><i style={{ background: CORES[k % CORES.length] }} /> {n}</span>)}</div>;
+  if (tipo === "barras") {
+    return (
+      <div className="dk-gr-barras">
+        {rotulos.map((r, i) => (
+          <div key={i} className="dk-gr-bl">
+            <span className="dk-gr-rot">{r}</span>
+            <div className="dk-gr-bs">{valores[i].map((v, k) => <div key={k} className="dk-gr-b" style={{ width: `${(v / max) * 100}%`, background: CORES[k % CORES.length] }}><em>{fmtNum(v)}</em></div>)}</div>
+          </div>
+        ))}
+        {legenda}
+      </div>
+    );
+  }
+  if (tipo === "pizza") {
+    const vs = valores.map((v) => v[0] || 0);
+    const tot = vs.reduce((a, b) => a + b, 0) || 1;
+    let ac = 0;
+    const arco = (ini, fim) => {
+      const p = (f) => [50 + 40 * Math.sin(2 * Math.PI * f), 50 - 40 * Math.cos(2 * Math.PI * f)];
+      const [x1, y1] = p(ini), [x2, y2] = p(Math.min(fim, ini + 0.9999));
+      return `M ${x1} ${y1} A 40 40 0 ${fim - ini > 0.5 ? 1 : 0} 1 ${x2} ${y2}`;
+    };
+    return (
+      <div className="dk-gr-pizza">
+        <svg viewBox="0 0 100 100" role="img" aria-label="Gráfico de pizza">
+          {vs.map((v, i) => { const ini = ac / tot; ac += v; return <path key={i} d={arco(ini, ac / tot)} stroke={CORES[i % CORES.length]} strokeWidth="18" fill="none" />; })}
+        </svg>
+        <div className="dk-gr-pizza-leg">{rotulos.map((r, i) => <div key={i}><i style={{ background: CORES[i % CORES.length] }} /><span>{r}</span><b>{fmtNum(vs[i])}</b><em>{Math.round((vs[i] / tot) * 100)}%</em></div>)}</div>
+      </div>
+    );
+  }
+  if (tipo === "linha") {
+    const W = 100, H = 46, n = rotulos.length;
+    const x = (i) => (n === 1 ? W / 2 : 4 + (i * (W - 8)) / (n - 1));
+    const y = (v) => H - 4 - (v / max) * (H - 10);
+    return (
+      <div className="dk-gr-linha">
+        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label="Gráfico de linha">
+          {series.map((_, k) => <polyline key={k} points={valores.map((v, i) => `${x(i)},${y(v[k])}`).join(" ")} fill="none" stroke={CORES[k % CORES.length]} strokeWidth=".7" vectorEffect="non-scaling-stroke" />)}
+        </svg>
+        <div className="dk-gr-linha-pts">
+          {series.map((_, k) => valores.map((v, i) => <span key={`${k}-${i}`} style={{ left: `${x(i)}%`, top: `${(y(v[k]) / H) * 100}%`, borderColor: CORES[k % CORES.length] }}><em>{fmtNum(v[k])}</em></span>))}
+        </div>
+        <div className="dk-gr-linha-rot">{rotulos.map((r, i) => <span key={i} style={{ left: `${x(i)}%` }}>{r}</span>)}</div>
+        {legenda}
+      </div>
+    );
+  }
+  // colunas (padrão)
+  return (
+    <div className="dk-gr-colunas-caixa">
+      <div className="dk-gr-colunas">
+        {rotulos.map((r, i) => (
+          <div key={i} className="dk-gr-col">
+            <div className="dk-gr-cs">{valores[i].map((v, k) => <div key={k} className="dk-gr-c" style={{ height: `${(v / max) * 100}%`, background: CORES[k % CORES.length] }}><em>{fmtNum(v)}</em></div>)}</div>
+            <span className="dk-gr-rot">{r}</span>
+          </div>
+        ))}
+      </div>
+      {legenda}
+    </div>
+  );
+}
 import { iniciais } from "./ui.jsx";
 
 export function Logo({ claro }) {
@@ -174,21 +246,19 @@ const RENDER = {
         <Tile v={t.enviadas} r="Propostas enviadas" escuro={escuro} />
         <Tile v={t.aprovadas} r="Aprovadas (das enviadas)" />
         <Tile v={t.recusadas} r="Recusadas" escuro={escuro} vermelho />
-        <Tile v={brl(t.valorAprovado, true)} r="Aceito no mês (R$)" valor />
         {amostras !== "" && amostras != null && <Tile v={amostras} r="Amostras analisadas" escuro={escuro} />}
       </div>
     );
     const conv = ind.t.taxa;
-    const delta = ind.ant.valorAprovado ? ((ind.t.valorAprovado - ind.ant.valorAprovado) / ind.ant.valorAprovado) * 100 : null;
+    const delta = ind.ant.enviadas ? ((ind.t.enviadas - ind.ant.enviadas) / ind.ant.enviadas) * 100 : null;
     return (
       <Moldura {...p}>
         <div className="dk-col">
           {linha(ind.rotulo, ind.t, p.s.amostras || p.ctx.setores?.porMes?.[p.ctx.mes]?.total || "", true)}
-          {linha(ind.rotuloAnt, ind.ant, p.s.amostrasAnterior || p.ctx.setores?.porMes?.[p.ctx.setores?.meses?.[0]]?.total || "", true)}
+          {linha(ind.rotuloAnt, ind.ant, p.s.amostrasAnterior || (Array.isArray(p.ctx.setores?.meses) ? p.ctx.setores?.porMes?.[p.ctx.setores.meses[0]]?.total : "") || "", true)}
           <div className="dk-ind-rodape">
             <div className="dk-ind-barra"><span>Aprovação</span><div><div style={{ width: `${Math.min(100, conv || 0)}%` }}>{pct(conv)}</div></div></div>
-            {ind.meta ? <div className="dk-ind-barra"><span>Meta {brl(ind.meta, true)}</span><div><div style={{ width: `${Math.min(100, (ind.t.valorAprovado / ind.meta) * 100)}%`, background: ind.t.valorAprovado >= ind.meta ? "var(--ok)" : undefined }}>{pct((ind.t.valorAprovado / ind.meta) * 100)}</div></div></div> : null}
-            {delta != null && <div className={`dk-delta ${delta >= 0 ? "sobe" : "desce"}`}>{delta >= 0 ? "▲" : "▼"} {pct(Math.abs(delta))} no valor aprovado frente a {ind.rotuloAnt.toLowerCase()}</div>}
+            {delta != null && <div className={`dk-delta ${delta >= 0 ? "sobe" : "desce"}`}>{delta >= 0 ? "▲" : "▼"} {pct(Math.abs(delta))} nas propostas enviadas frente a {ind.rotuloAnt.toLowerCase()}</div>}
           </div>
           {p.s.texto && <div className="dk-citacao">“{T(p.s.texto, p.ctx)}”</div>}
         </div>
@@ -219,7 +289,7 @@ const RENDER = {
   },
   setores: (p) => {
     const st = p.ctx.setores;
-    if (!st) return <Moldura {...p}><Aguardando texto={p.ctx.erroSetores || "Lendo as amostras do CRM…"} /></Moldura>;
+    if (!st?.porMes || !Array.isArray(st.meses)) return <Moldura {...p}><Aguardando texto={p.ctx.erroSetores || "Lendo as amostras do CRM…"} /></Moldura>;
     const [mAnt, mAt] = st.meses;
     const at = st.porMes[mAt] || { total: 0, porSetor: {}, porMatriz: {} };
     const an = st.porMes[mAnt] || { total: 0, porSetor: {} };
@@ -260,6 +330,23 @@ const RENDER = {
       </Moldura>
     );
   },
+  grafico: (p) => (
+    <Moldura {...p}>
+      <div className="dk-col">
+        {p.s.texto && <div className="dk-gr-sub">{T(p.s.texto, p.ctx)}</div>}
+        <Grafico tipo={p.s.tipoGrafico || "colunas"} dados={lerDados(T(p.s.itens, p.ctx))} />
+        <Destaque texto={p.s.destaque} ctx={p.ctx} />
+      </div>
+    </Moldura>
+  ),
+  imagem: (p) => (
+    <Moldura {...p}>
+      <div className="dk-col" style={{ alignItems: "center", justifyContent: "center" }}>
+        {p.s.imagem ? <img className="dk-imagem" src={p.s.imagem} alt={p.s.texto || ""} /> : <Aguardando texto="Escolha a imagem no editor (print de gráfico, foto, tabela…)." />}
+        {p.s.texto && <div className="dk-imagem-leg">{T(p.s.texto, p.ctx)}</div>}
+      </div>
+    </Moldura>
+  ),
   ranking: (p) => {
     const top = p.ctx.podio;
     return (

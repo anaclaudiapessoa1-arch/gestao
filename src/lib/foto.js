@@ -17,3 +17,26 @@ export function reduzirFoto(arquivo, lado = 360) {
     img.src = URL.createObjectURL(arquivo);
   });
 }
+
+// Imagem de slide (print, gráfico, foto): mantém a proporção, até 1600 px no
+// lado maior. Fundo branco para prints com transparência. JPEG ≈ 100–250 KB.
+export function reduzirImagem(arquivo, maior = 1600) {
+  return new Promise((resolve, reject) => {
+    if (!arquivo?.type?.startsWith("image/")) { reject(new Error("Escolha uma imagem.")); return; }
+    const img = new Image();
+    img.onload = () => {
+      const f = Math.min(1, maior / Math.max(img.width, img.height));
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.width * f);
+      c.height = Math.round(img.height * f);
+      const g = c.getContext("2d");
+      g.fillStyle = "#fff";
+      g.fillRect(0, 0, c.width, c.height);
+      g.drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(img.src);
+      resolve(c.toDataURL("image/jpeg", 0.85));
+    };
+    img.onerror = () => reject(new Error("Não consegui abrir esta imagem."));
+    img.src = URL.createObjectURL(arquivo);
+  });
+}
