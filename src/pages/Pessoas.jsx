@@ -6,7 +6,8 @@ import { navegar } from "../lib/rota.js";
 import { pct, mesLongo, mesNome, mesCurto, dataCurta, hojeBR, brl } from "../lib/format.js";
 import { realizado, metasDe, mediaAnterior, pontos, roteiroFeedback, serie } from "../lib/calculos.js";
 import { treinamentosDaPessoa } from "../lib/treinamentosPessoa.js";
-import { trilhaPorId } from "../lib/trilhas.js";
+import { trilhaPorId, TRILHAS } from "../lib/trilhas.js";
+import { matrizReciclagem } from "../lib/reciclagem.js";
 import { Desenvolvimento } from "../components/Desenvolvimento.jsx";
 import { Orientacao } from "../components/Orientacao.jsx";
 import { MetasFuncao } from "./Funcoes.jsx";
@@ -36,6 +37,7 @@ export default function Pessoas({ param }) {
   const fbs = membro ? dados.feedbacks.filter((f) => f.pessoaId === membro.id).sort((a, b) => String(b.data).localeCompare(String(a.data))) : [];
   const pagFb = usePaginacao(fbs, 5, membro?.id);
   const treinos = treinamentosDaPessoa(dados.treinamentos, membro);
+  const recic = matrizReciclagem({ trilhas: TRILHAS, registros: dados.treinamentos, pessoas: membro ? [membro] : [], hoje: hojeBR() });
 
   if (!membro) {
     return (
@@ -158,6 +160,15 @@ export default function Pessoas({ param }) {
             </div>
           ))}
           <Paginacao pag={pagFb} rotulo="conversas" />
+        </Card>}
+      {aba === "treinamentos" && recic.periodicas.length > 0 && <Card semPad>
+          <div className="card-cab"><h3>Reciclagens</h3><span className="suave peq">conta a partir da última aplicação</span></div>
+          <div className="tabela-caixa"><table>
+            <thead><tr><th>Treinamento</th><th>Última vez</th><th>Próxima até</th><th>Situação</th></tr></thead>
+            <tbody>{recic.periodicas.map((t) => { const c = recic.linhas[0].celulas[t.id]; const tom = { "em-dia": "ok", vence: "alerta", vencido: "ruim", nunca: "neutro" }[c.status]; const rot = { "em-dia": "Em dia", vence: "Vence em breve", vencido: "Vencido", nunca: "Nunca fez" }[c.status]; return (
+              <tr key={t.id}><td>{t.nome}</td><td className="tnum">{c.ultima ? dataCurta(c.ultima) : "—"}</td><td className="tnum">{c.vence ? dataCurta(c.vence) : "—"}</td><td><Chip tom={tom}>{rot}</Chip></td></tr>
+            ); })}</tbody>
+          </table></div>
         </Card>}
       {aba === "treinamentos" && <Card semPad>
           <div className="card-cab"><h3>Treinamentos de {membro.nome}</h3><span className="suave peq">{treinos.length} registro(s)</span></div>

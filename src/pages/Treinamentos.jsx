@@ -11,6 +11,7 @@ import { slidesDoModelo, modeloPorId } from "../lib/modelosApresentacao.js";
 import { npsCRM, licitacoesCRM } from "../services/crm.js";
 import { TRILHAS, trilhaPorId } from "../lib/trilhas.js";
 import { pessoasParaTreinamento } from "../lib/treinamentosPessoa.js";
+import { matrizReciclagem, OPCOES_PERIODO, ID_CONFIG, periodosEmVigor } from "../lib/reciclagem.js";
 import { hojeBR, dataCurta, mesAtual, somarMeses, mesDeData, mesNome, pct, nomeProprio } from "../lib/format.js";
 
 const norm = (t) => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -38,6 +39,13 @@ function motivos({ resumo, equipe, dados, nps, lics }) {
   const perdidas = (lics || []).filter((l) => String(l.status).toUpperCase() === "PERDIDA").length;
   if (perdidas) out.licitacoes = `${perdidas} licitação(ões) perdida(s).`;
   const semFb = equipe.filter((p) => !dados.feedbacks.some((f) => f.pessoaId === p.id && f.mes >= ant));
+  const rec = matrizReciclagem({ trilhas: TRILHAS, registros: dados.treinamentos, pessoas: equipe, hoje: hojeBR() });
+  for (const t of rec.periodicas) {
+    const venc = rec.pendencias.filter((x) => x.trilha.id === t.id && x.status !== "nunca");
+    const nunca = rec.pendencias.filter((x) => x.trilha.id === t.id && x.status === "nunca");
+    const partes = [venc.length && `reciclagem vencida ou vencendo: ${venc.map((x) => x.pessoa.nome.split(" ")[0]).join(", ")}`, nunca.length && `nunca fizeram: ${nunca.map((x) => x.pessoa.nome.split(" ")[0]).join(", ")}`].filter(Boolean);
+    if (partes.length) { const txt = partes.join("; ") + "."; out[t.id] = out[t.id] ? `${out[t.id]} ${txt.charAt(0).toUpperCase()}${txt.slice(1)}` : txt.charAt(0).toUpperCase() + txt.slice(1); }
+  }
   if (semFb.length) out.gestora = `Sem conversa individual registrada desde ${mesNome(ant)}: ${semFb.map((p) => p.nome.split(" ")[0]).join(", ")}.`;
   return out;
 }
@@ -62,8 +70,8 @@ export default function Treinamentos() {
   const [aba, setAba] = useState("apresentacoes");
   return (
     <>
-      <Abas valor={aba} aoMudar={setAba} abas={[["apresentacoes", "Apresentações de treinamento"], ["trilhas", "Trilhas do comercial"]]} />
-      {aba === "trilhas" ? <Trilhas /> : (
+      <Abas valor={aba} aoMudar={setAba} abas={[["apresentacoes", "Apresentações de treinamento"], ["trilhas", "Trilhas do comercial"], ["reciclagem", "Periodicidade e reciclagem"]]} />
+      {aba === "reciclagem" ? <Reciclagem irParaTrilha={() => setAba("trilhas")} /> : aba === "trilhas" ? <Trilhas /> : (
         <>
           <Cabecalho sobre="Treinamentos" titulo="Apresentações de treinamento" sub="Integração de novos colaboradores pronta e um modelo para criar treinamentos novos no estilo MinasLab." />
           <Estudio categoria="treinamento" />
@@ -82,7 +90,7 @@ function Trilhas() {
   const [sel, setSel] = useState(ordem[0].id);
   const [modo, setModo] = useState("guia");
   const t = trilhaPorId(sel);
-  const aplicacoes = dados.treinamentos.filter((x) => x.trilhaId === sel).sort((a, b) => String(b.data).localeCompare(String(a.data)));
+  const aplicacoes = dados.treinamentos.filter((x) => x.trilhaId && x.trilhaId === sel).sort((a, b) => String(b.data).localeCompare(String(a.data)));
 
   return (
     <>
@@ -182,6 +190,73 @@ function SlidesDoModelo({ modelo }) {
       <Apresentador slides={slides} ctx={{ tema: m?.tema, valores: { mes: "", ano: "" } }} i={i} setI={setI} />
       <div className="suave peq">Para editar os slides, baixar em PowerPoint ou gerar a ata, crie a apresentação pela aba <b>Apresentações de treinamento</b> com o modelo “{m?.nome}”.</div>
     </div>
+  );
+}
+
+/** Periodicidade de cada trilha e situação de reciclagem de cada pessoa. */
+const ROT = { "em-dia": ["ok", "Em dia"], vence: ["alerta", "Vence em breve"], vencido: ["ruim", "Vencido"], nunca: ["neutro", "Nunca fez"] };
+function Reciclagem({ irParaTrilha }) {
+  const { equipeAtual: equipe, dados, gravar } = useBase();
+  const [msg, setMsg] = useState("");
+  const hoje = hojeBR();
+  const per = periodosEmVigor(dados.treinamentos);
+  const m = matrizReciclagem({ trilhas: TRILHAS, registros: dados.treinamentos, pessoas: equipe, hoje });
+  const mudar = async (id, meses) => {
+    setMsg("");
+    try { await gravar("treinamentos", { id: ID_CONFIG, tipo: "periodicidade", periodos: { ...per, [id]: Number(meses) } }); setMsg("Periodicidade salva."); }
+    catch (e) { setMsg(e.message); }
+  };
+  const celula = (c) => {
+    if (!c) return null;
+    const [tom, rot] = ROT[c.status] || ["neutro", ""];
+    return <div><Chip tom={tom}>{rot}</Chip>{c.vence && <div className="suave peq" style={{ marginTop: 2 }}>{c.status === "vencido" ? "venceu" : "vence"} {dataCurta(c.vence)}</div>}</div>;
+  };
+  return (
+    <>
+      <Cabecalho sobre="Treinamentos" titulo="Periodicidade e reciclagem" sub="Defina de quanto em quanto tempo cada treinamento deve ser refeito. O sistema conta a partir da última aplicação registrada de cada pessoa e avisa 30 dias antes de vencer." />
+      <div className="grade grade-kpi">
+        <Card><div className="suave peq">Reciclagens vencidas</div><div style={{ fontSize: 28, fontWeight: 700, color: m.totais.vencido ? "var(--ruim)" : undefined }}>{m.totais.vencido}</div></Card>
+        <Card><div className="suave peq">Vencem nos próximos 30 dias</div><div style={{ fontSize: 28, fontWeight: 700, color: m.totais.vence ? "var(--alerta)" : undefined }}>{m.totais.vence}</div></Card>
+        <Card><div className="suave peq">Treinamentos obrigatórios nunca feitos</div><div style={{ fontSize: 28, fontWeight: 700 }}>{m.totais.nunca}</div></Card>
+      </div>
+
+      <Card semPad>
+        <div className="card-cab"><h2>Situação da equipe</h2><span className="suave peq">{equipe.length} pessoa(s) · {m.periodicas.length} treinamento(s) com reciclagem</span></div>
+        {m.periodicas.length === 0 || equipe.length === 0 ? <div className="vazio" style={{ padding: "0 20px 20px" }}>{equipe.length ? "Defina a periodicidade de algum treinamento abaixo." : "Cadastre a equipe do setor em Equipe e metas."}</div> : (
+          <div className="tabela-caixa"><table>
+            <thead><tr><th>Pessoa</th>{m.periodicas.map((t) => <th key={t.id} style={{ minWidth: 130 }}>{t.nome}<div className="suave peq" style={{ textTransform: "none", fontWeight: 400 }}>{OPCOES_PERIODO.find(([v]) => v === per[t.id])?.[1] || `a cada ${per[t.id]} meses`}</div></th>)}</tr></thead>
+            <tbody>{m.linhas.map((l) => <tr key={l.pessoa.id}><td>{l.pessoa.nome}</td>{m.periodicas.map((t) => <td key={t.id}>{celula(l.celulas[t.id])}</td>)}</tr>)}</tbody>
+          </table></div>
+        )}
+      </Card>
+
+      {m.pendencias.length > 0 && (
+        <Card semPad>
+          <div className="card-cab"><h2>O que aplicar primeiro</h2><button type="button" className="btn claro mini" onClick={irParaTrilha}>Ir para as trilhas e registrar</button></div>
+          <div className="tabela-caixa"><table>
+            <thead><tr><th>Pessoa</th><th>Treinamento</th><th>Situação</th><th>Última aplicação</th></tr></thead>
+            <tbody>{m.pendencias.slice(0, 30).map((x) => <tr key={`${x.pessoa.id}-${x.trilha.id}`}><td>{x.pessoa.nome}</td><td>{x.trilha.nome}</td><td>{celula(x)}</td><td className="tnum">{x.ultima ? dataCurta(x.ultima) : "—"}</td></tr>)}</tbody>
+          </table></div>
+        </Card>
+      )}
+
+      <Card semPad>
+        <div className="card-cab"><h2>Periodicidade de cada treinamento</h2>{msg && <span className="peq suave">{msg}</span>}</div>
+        <div className="tabela-caixa"><table>
+          <thead><tr><th>Treinamento</th><th>Para</th><th>Refazer</th></tr></thead>
+          <tbody>{TRILHAS.map((t) => (
+            <tr key={t.id}>
+              <td>{t.nome}</td>
+              <td className="peq suave">{t.publico}</td>
+              <td><select className="entrada" style={{ maxWidth: 240 }} aria-label={`Periodicidade de ${t.nome}`} value={per[t.id] ?? 0} onChange={(e) => mudar(t.id, e.target.value)}>
+                {OPCOES_PERIODO.map(([v, r]) => <option key={v} value={v}>{r}</option>)}
+              </select></td>
+            </tr>
+          ))}</tbody>
+        </table></div>
+        <div className="suave peq" style={{ padding: "0 20px 16px" }}>Os valores iniciais são sugestões (anual para os treinamentos ligados à ISO/IEC 17025 e ao CRM). Treinamentos com reciclagem valem para toda a equipe do setor. A ISO/IEC 17025 (6.2) pede monitorar a competência do pessoal: esta tela e os registros de aplicação são a evidência.</div>
+      </Card>
+    </>
   );
 }
 
