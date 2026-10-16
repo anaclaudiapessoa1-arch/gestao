@@ -47,6 +47,8 @@ export function itemDoSlide(s, ctx = {}) {
     }
     case "grafico": return { titulo, corpo: junta(T(s.texto, ctx), linhas(T(s.itens, ctx)).map((l) => `- ${l.split("|").map((c) => c.trim()).join(": ")}`), dest) };
     case "imagem": return { titulo, corpo: T(s.texto, ctx) };
+    case "imagemLado": return { titulo, corpo: junta(T(s.texto, ctx), T(s.destaque, ctx)) };
+    case "video": return { titulo, corpo: junta(`Vídeo apresentado${s.video ? ` (${s.video})` : ""}.`, T(s.texto, ctx)) };
     case "aviso": return { titulo, corpo: junta(T(s.texto, ctx), dest) };
     case "frase": return { titulo, corpo: junta(T(s.frase, ctx), T(s.texto, ctx)) };
     case "escala": return { titulo, corpo: junta("Foi apresentada a escala do mês, com o responsável de cada dia e as tarefas:", linhas(T(s.texto, ctx)).map((l) => `- ${l}`), dest) };

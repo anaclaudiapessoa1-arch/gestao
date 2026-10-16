@@ -135,17 +135,44 @@ function Moldura({ s, ctx, n, total, children, classe = "" }) {
   );
 }
 
+/**
+ * Link de vídeo → como mostrar. YouTube e Vimeo viram o player deles;
+ * Google Drive usa a prévia do arquivo compartilhado; .mp4/.webm toca direto.
+ */
+export function videoDe(link) {
+  const u = String(link || "").trim();
+  if (!u) return null;
+  let m = u.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([\w-]{6,})/);
+  if (m) return { tipo: "youtube", url: `https://www.youtube-nocookie.com/embed/${m[1]}?rel=0` };
+  m = u.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+  if (m) return { tipo: "vimeo", url: `https://player.vimeo.com/video/${m[1]}` };
+  m = u.match(/drive\.google\.com\/(?:file\/d\/|open\?id=)([\w-]+)/);
+  if (m) return { tipo: "drive", url: `https://drive.google.com/file/d/${m[1]}/preview` };
+  if (/\.(mp4|webm|ogg)(\?|#|$)/i.test(u)) return { tipo: "arquivo", url: u };
+  if (/^https?:\/\//i.test(u)) return { tipo: "pagina", url: u };
+  return null;
+}
+
 // ------------------------------------------------------------- layouts
 const RENDER = {
-  capa: ({ s, ctx }) => (
-    <div className="dk-slide dk-escuro dk-capa">
-      <Logo claro={ctx?.tema !== "colorido"} />
-      <div className="dk-capa-tit">{T(s.titulo, ctx)}</div>
-      {s.subtitulo && <div className="dk-capa-sub">{T(s.subtitulo, ctx)}</div>}
-      {s.texto && <div className="dk-capa-txt">{T(s.texto, ctx)}</div>}
-      {ctx?.tema === "colorido" && <Pilulas texto={s.destaque} ctx={ctx} />}
-    </div>
-  ),
+  capa: ({ s, ctx }) => {
+    const miolo = (
+      <>
+        <Logo claro={ctx?.tema !== "colorido"} />
+        <div className="dk-capa-tit">{T(s.titulo, ctx)}</div>
+        {s.subtitulo && <div className="dk-capa-sub">{T(s.subtitulo, ctx)}</div>}
+        {s.texto && <div className="dk-capa-txt">{T(s.texto, ctx)}</div>}
+        {ctx?.tema === "colorido" && <Pilulas texto={s.destaque} ctx={ctx} />}
+      </>
+    );
+    if (!s.imagem) return <div className="dk-slide dk-escuro dk-capa">{miolo}</div>;
+    return (
+      <div className="dk-slide dk-escuro dk-capa com-imagem">
+        <div className="dk-capa-lado">{miolo}</div>
+        <img className="dk-capa-img" src={s.imagem} alt="" />
+      </div>
+    );
+  },
   encerramento: ({ s, ctx }) => (
     <div className="dk-slide dk-escuro dk-capa">
       <div className="dk-capa-tit grande">{T(s.titulo, ctx)}</div>
@@ -350,12 +377,40 @@ const RENDER = {
   ),
   imagem: (p) => (
     <Moldura {...p}>
-      <div className="dk-col" style={{ alignItems: "center", justifyContent: "center" }}>
-        {p.s.imagem ? <img className="dk-imagem" src={p.s.imagem} alt={p.s.texto || ""} /> : <Aguardando texto="Escolha a imagem no editor (print de gráfico, foto, tabela…)." />}
+      <div className="dk-col" style={{ alignItems: "center", justifyContent: "center", gap: "1.2cqw" }}>
+        {p.s.imagem ? <img className={`dk-imagem${p.s.destaque ? "" : " grande"}`} src={p.s.imagem} alt={p.s.texto || ""} /> : <Aguardando texto="Escolha a imagem no editor (print de gráfico, foto, tabela…)." />}
         {p.s.texto && <div className="dk-imagem-leg">{T(p.s.texto, p.ctx)}</div>}
+        <Destaque texto={p.s.destaque} ctx={p.ctx} />
       </div>
     </Moldura>
   ),
+  imagemLado: (p) => (
+    <Moldura {...p}>
+      <div className="dk-img-lado">
+        <div className="dk-img-lado-foto">{p.s.imagem ? <img src={p.s.imagem} alt="" /> : <Aguardando texto="Escolha a imagem no editor." />}</div>
+        <div className="dk-col" style={{ minWidth: 0 }}><Lista texto={p.s.texto} ctx={p.ctx} /><Destaque texto={p.s.destaque} ctx={p.ctx} /></div>
+      </div>
+    </Moldura>
+  ),
+  video: (p) => {
+    const v = videoDe(p.s.video);
+    return (
+      <Moldura {...p}>
+        <div className="dk-col" style={{ alignItems: "center", gap: "1.2cqw" }}>
+          {!v ? <Aguardando texto="Cole o link do vídeo no editor (YouTube, Vimeo, Google Drive ou arquivo .mp4)." />
+            : p.interativo ? (
+              <div className="dk-video">
+                {v.tipo === "arquivo" ? <video src={v.url} controls preload="metadata" /> : <iframe src={v.url} title={p.s.titulo || "Vídeo"} allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowFullScreen />}
+              </div>
+            ) : (
+              <div className="dk-video dk-video-capa"><span className="dk-video-play" aria-hidden="true">▶</span><span>Vídeo: {p.s.video}</span></div>
+            )}
+          {p.s.texto && <div className="dk-imagem-leg">{T(p.s.texto, p.ctx)}</div>}
+          <Destaque texto={p.s.destaque} ctx={p.ctx} />
+        </div>
+      </Moldura>
+    );
+  },
   ranking: (p) => {
     const top = p.ctx.podio;
     return (
@@ -518,8 +573,10 @@ const RENDER = {
     const alts = linhas(T(p.s.itens, p.ctx)).map((l) => ({ certa: l.startsWith("*"), texto: l.replace(/^\*\s*/, "") }));
     const rev = !!p.revelado;
     return (
-      <Moldura {...p} classe="dk-quiz-slide">
-        <div className="dk-col" style={{ gap: "1.6cqw" }}>
+      <Moldura {...p} classe={`dk-quiz-slide${p.s.imagem ? " com-imagem" : ""}`}>
+        <div className={p.s.imagem ? "dk-quiz-com-img" : "dk-col"} style={p.s.imagem ? undefined : { gap: "1.6cqw" }}>
+          {p.s.imagem && <div className="dk-quiz-img"><img src={p.s.imagem} alt="" /></div>}
+          <div className="dk-col" style={{ gap: "1.6cqw", minWidth: 0 }}>
           <div className="dk-quiz-perg"><span className="dk-quiz-selo">?</span><span>{T(p.s.texto, p.ctx)}</span></div>
           {alts.length > 0 && (
             <div className={`dk-quiz-alts${alts.length > 2 ? " duas" : ""}`}>
@@ -531,6 +588,7 @@ const RENDER = {
             </div>
           )}
           {rev ? <Destaque texto={p.s.destaque} ctx={p.ctx} /> : <div className="dk-quiz-dica">{p.interativo ? "Clique no slide ou aperte → para mostrar a resposta" : "Discuta em grupo antes de ver a resposta"}</div>}
+          </div>
         </div>
       </Moldura>
     );
@@ -605,7 +663,7 @@ export function Apresentador({ slides, ctx, i, setI, notas = true }) {
   if (!atual) return <div className="vazio">Nenhum slide visível.</div>;
   return (
     <>
-      <div ref={palco} className={`dk-palco${cheia ? " cheia" : ""}`} onClick={(e) => { if ((cheia || atual.layout === "quiz") && !e.target.closest("button")) avancar(); }}>
+      <div ref={palco} className={`dk-palco${cheia ? " cheia" : ""}`} onClick={(e) => { if ((cheia || atual.layout === "quiz") && !e.target.closest("button, video, iframe, a")) avancar(); }}>
         <SlideML s={atual} ctx={ctx} n={i + 1} total={vis.length} revelado={!!revelados[atual.id]} interativo />
         <div className="palco-nav">
           <button type="button" aria-label="Slide anterior" onClick={() => setI((x) => Math.max(x - 1, 0))} disabled={i === 0}>‹</button>

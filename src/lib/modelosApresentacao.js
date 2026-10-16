@@ -11,9 +11,10 @@
 import { novoId } from "./format.js";
 import { MODELOS_PG } from "./treinamentosPG.js";
 import { MODELOS_TRILHAS } from "./treinamentosTrilhas.js";
+import { MODELO_VISUAL } from "./treinamentoVisual.js";
 
 export const LAYOUTS = {
-  capa: { nome: "Capa", campos: ["titulo", "subtitulo", "texto", "destaque"], ajuda: { destaque: "Só no estilo colorido: palavras separadas por · viram pílulas coloridas." } },
+  capa: { nome: "Capa", campos: ["titulo", "subtitulo", "texto", "destaque", "imagem"], ajuda: { destaque: "Só no estilo colorido: palavras separadas por · viram pílulas coloridas.", imagem: "Opcional: foto ao lado do título." } },
   agenda: { nome: "Agenda", campos: ["titulo", "itens"], ajuda: { itens: "Uma linha por tópico: Título | descrição" } },
   topicos: { nome: "Tópicos", campos: ["titulo", "texto", "destaque"], ajuda: { texto: "Uma linha por tópico. \"# \" no começo vira subtítulo." } },
   colunas: { nome: "Cartões", campos: ["titulo", "itens", "destaque"], ajuda: { itens: "\"## Título\" abre um cartão; as linhas abaixo são o texto. \"- \" vira marcador." } },
@@ -21,7 +22,9 @@ export const LAYOUTS = {
   fluxo: { nome: "Fluxo / linha do tempo", campos: ["titulo", "itens", "destaque"], ajuda: { itens: "Uma etapa por linha: Etapa | detalhe. Termine com ! para marcar em vermelho." } },
   tabela: { nome: "Tabela", campos: ["titulo", "itens", "destaque"], ajuda: { itens: "Colunas separadas por |. A primeira linha é o cabeçalho." } },
   grafico: { nome: "Gráfico (dados livres)", campos: ["titulo", "tipoGrafico", "texto", "itens", "destaque"], ajuda: { itens: "Uma linha por item: Rótulo | valor. Para comparar séries, a 1ª linha é o cabeçalho: Mês | Micro | FQ", texto: "Subtítulo (opcional)" } },
-  imagem: { nome: "Imagem (print, foto, gráfico de outro sistema)", campos: ["titulo", "imagem", "texto"], ajuda: { texto: "Legenda (opcional)" } },
+  imagem: { nome: "Imagem (print, foto, gráfico de outro sistema)", campos: ["titulo", "imagem", "texto", "destaque"], ajuda: { texto: "Legenda (opcional)" } },
+  imagemLado: { nome: "Imagem com texto ao lado", campos: ["titulo", "imagem", "texto", "destaque"], ajuda: { texto: "Uma linha por tópico. \"# \" no começo vira subtítulo." } },
+  video: { nome: "Vídeo", campos: ["titulo", "video", "texto", "destaque"], ajuda: { video: "Link do YouTube, Vimeo, Google Drive (compartilhado com “qualquer pessoa com o link”) ou de um arquivo .mp4. O vídeo toca durante a apresentação.", texto: "Legenda (opcional)" } },
   aviso: { nome: "Aviso (fundo escuro)", campos: ["titulo", "texto", "destaque"] },
   frase: { nome: "Frase de impacto", campos: ["titulo", "frase", "texto"] },
   indicadores: { nome: "Indicadores comerciais (CRM)", auto: true, campos: ["titulo", "amostras", "amostrasAnterior", "texto"], ajuda: { amostras: "Em branco = total do CRM (amostras recebidas no mês). Preencha só para corrigir.", texto: "Comentário da gestão sobre o mês" } },
@@ -36,13 +39,13 @@ export const LAYOUTS = {
   combinados: { nome: "Combinados da última reunião", auto: true, campos: ["titulo"] },
   compromissos: { nome: "Próximos passos (ata desta reunião)", auto: true, campos: ["titulo"] },
   encerramento: { nome: "Encerramento", campos: ["titulo", "subtitulo", "texto", "destaque"], ajuda: { destaque: "Só no estilo colorido: palavras separadas por · viram pílulas coloridas." } },
-  quiz: { nome: "Quiz (pergunta com resposta)", campos: ["titulo", "texto", "itens", "destaque"], ajuda: { texto: "A pergunta ou o caso.", itens: "Uma alternativa por linha. Comece a certa com * (ex.: * Ligar para o cliente). Sem alternativas vira pergunta aberta.", destaque: "Resposta / explicação: aparece quando você revela a resposta." } },
+  quiz: { nome: "Quiz (pergunta com resposta)", campos: ["titulo", "texto", "itens", "destaque", "imagem"], ajuda: { imagem: "Opcional: foto ou ilustração ao lado da pergunta.", texto: "A pergunta ou o caso.", itens: "Uma alternativa por linha. Comece a certa com * (ex.: * Ligar para o cliente). Sem alternativas vira pergunta aberta.", destaque: "Resposta / explicação: aparece quando você revela a resposta." } },
 };
 
 export const ROTULOS_CAMPOS = {
   titulo: "Título", subtitulo: "Subtítulo", texto: "Texto", itens: "Itens", destaque: "Caixa de destaque",
   numero: "Número grande", rotulo: "Legenda do número", frase: "Frase", nome: "Nome", setor: "Setor",
-  foto: "Foto", imagem: "Imagem", tipoGrafico: "Tipo de gráfico", escala: "Escala do mês", amostras: "Amostras analisadas no mês", amostrasAnterior: "Amostras no mês anterior",
+  foto: "Foto", imagem: "Imagem", video: "Link do vídeo", tipoGrafico: "Tipo de gráfico", escala: "Escala do mês", amostras: "Amostras analisadas no mês", amostrasAnterior: "Amostras no mês anterior",
 };
 
 const S = (layout, campos = {}, notas = "") => ({ layout, ...campos, notas });
@@ -193,6 +196,7 @@ export const MODELOS = [
   { id: "analise-critica", categoria: "treinamento", setor: "comercial", tema: "colorido", nome: "Análise crítica de propostas (ISO 17025)", desc: "PG 006 e requisito 7.1 da ISO/IEC 17025: checklist, fluxo da proposta, aceite do cliente e casos reais em quiz. Estilo colorido.", titulo: "Análise Crítica de Propostas · PG 006", slides: ANALISE_CRITICA },
   ...MODELOS_PG,
   ...MODELOS_TRILHAS,
+  MODELO_VISUAL,
   { id: "treinamento", categoria: "treinamento", tema: "colorido", nome: "Novo treinamento", desc: "Estrutura pronta: o número que queremos mudar, objetivo, conteúdo, regra de ouro, prática e teste.", titulo: "Novo treinamento", slides: TREINAMENTO },
   { id: "livre", categoria: "ambos", nome: "Em branco", desc: "Capa, um slide e encerramento. Monte do seu jeito.", titulo: "Nova apresentação", slides: LIVRE },
 ];

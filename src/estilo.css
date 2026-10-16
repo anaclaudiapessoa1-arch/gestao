@@ -738,3 +738,22 @@ tr:last-child td { border-bottom: 0; }
   .agenda-ev { font-size: 0; padding: 0; height: 6px; border-left: 0; background: var(--ev); border-radius: 3px; }
   .agenda-mais { font-size: 10px; text-align: center; padding: 0; }
 }
+
+/* ---------- imagem com texto, vídeo, quiz com imagem, capa com foto ---------- */
+.dk-imagem.grande { max-height: 34cqw; }
+.dk-img-lado { flex: 1; min-height: 0; display: grid; grid-template-columns: 1.3fr 1fr; gap: 3cqw; align-items: center; }
+.dk-img-lado-foto { display: flex; align-items: center; justify-content: center; min-height: 0; height: 100%; }
+.dk-img-lado-foto img { max-width: 100%; max-height: 36cqw; object-fit: contain; border-radius: .8cqw; }
+.dk-video { width: 64cqw; aspect-ratio: 16 / 9; max-height: 32cqw; border-radius: .8cqw; overflow: hidden; background: #0f1e24; }
+.dk-video iframe, .dk-video video { width: 100%; height: 100%; border: 0; display: block; background: #000; }
+.dk-video-capa { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1cqw; color: #dbe7ea; font-size: 1.1cqw; padding: 2cqw; text-align: center; word-break: break-all; }
+.dk-video-play { width: 6cqw; height: 6cqw; border-radius: 50%; background: var(--marca-400); color: #fff; display: grid; place-items: center; font-size: 2.6cqw; }
+.dk-quiz-com-img { flex: 1; min-height: 0; display: grid; grid-template-columns: 26cqw 1fr; gap: 2.4cqw; align-items: center; }
+.dk-quiz-img { display: flex; align-items: center; justify-content: center; }
+.dk-quiz-img img { max-width: 100%; max-height: 33cqw; object-fit: contain; border-radius: .8cqw; }
+.dk-quiz-com-img .dk-quiz-alts.duas { grid-template-columns: 1fr; }
+.dk-capa.com-imagem { display: grid; grid-template-columns: 1fr 1fr; align-items: center; justify-items: start; text-align: left; gap: 3cqw; padding: 4cqw 4cqw 4cqw 6cqw; }
+.dk-capa-lado { display: flex; flex-direction: column; align-items: flex-start; gap: 1.4cqw; min-width: 0; }
+.dk-capa.com-imagem .dk-pilulas { justify-content: flex-start; }
+.dk-capa-img { width: 100%; max-height: 40cqw; object-fit: contain; }
+@media print { .dk-video, .dk-video-play { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }

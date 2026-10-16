@@ -4,6 +4,7 @@
 
 import { TRILHAS_PG } from "./treinamentosPG.js";
 import { TRILHA_GESTAO_TEMPO } from "./treinamentosTrilhas.js";
+import { TRILHA_VISUAL } from "./treinamentoVisual.js";
 import { modeloPorId } from "./modelosApresentacao.js";
 import { perguntasDoModelo } from "./treinamentosPG.js";
 
@@ -325,6 +326,7 @@ export const TRILHAS = [
   comModelo({ ...INTEGRACAO, roteiro: roteiroPadrao(60) }),
   ...TRILHAS_COMERCIAL.map((t) => comModelo({ ...t, setores: EXTRA[t.id]?.[0] || ["comercial"], tema: EXTRA[t.id]?.[1] || "vendas" })),
   ...TRILHAS_PG.map(comModelo),
+  comModelo({ ...TRILHA_VISUAL, roteiro: roteiroPadrao(30) }),
   comModelo({ ...TRILHA_GESTAO_TEMPO, roteiro: roteiroPadrao(40) }),
 ];
 export const trilhasDoSetor = (setor) => TRILHAS.filter((t) => t.setores.includes(setor));

@@ -340,7 +340,7 @@ function NovoSlide({ aoEscolher }) {
     <select className="entrada peq" aria-label="Adicionar slide" value={v} onChange={(e) => { if (e.target.value) { aoEscolher(e.target.value); setV(""); } }}>
       <option value="">+ Adicionar slide…</option>
       <optgroup label="Livres (você escreve)">
-        {["topicos", "colunas", "quiz", "tabela", "grafico", "imagem", "numero", "fluxo", "agenda", "frase", "aviso", "capa", "encerramento"].filter((id) => LAYOUTS[id]).map((id) => <option key={id} value={id}>{LAYOUTS[id].nome}</option>)}
+        {["topicos", "colunas", "quiz", "tabela", "grafico", "imagem", "imagemLado", "video", "numero", "fluxo", "agenda", "frase", "aviso", "capa", "encerramento"].filter((id) => LAYOUTS[id]).map((id) => <option key={id} value={id}>{LAYOUTS[id].nome}</option>)}
       </optgroup>
       <optgroup label="Automáticos (dados do sistema)">
         {Object.entries(LAYOUTS).filter(([, l]) => l.auto || l.campos.includes("escala")).map(([id, l]) => <option key={id} value={id}>{l.nome}</option>)}

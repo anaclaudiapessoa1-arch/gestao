@@ -30,6 +30,7 @@ export async function baixarPptx({ titulo, slides, container, aoProgresso }) {
       s.addImage({ data: png, x: 0, y: 0, w: 13.333, h: 7.5 });
       const { s: sl, revelado } = pags[i];
       const notas = [sl.notas, sl.layout === "quiz" && !revelado && sl.destaque ? `Resposta: ${sl.destaque}` : ""].filter(Boolean).join("\n\n");
+      if (sl.layout === "video" && sl.video) s.addText(`▶ Assistir ao vídeo: ${sl.video}`, { x: 0.6, y: 6.55, w: 9.5, h: 0.45, fontSize: 14, color: "1D4E89", hyperlink: { url: String(sl.video) } });
       if (notas) s.addNotes(String(notas));
     }
     await pptx.writeFile({ fileName: nomeArquivo(titulo) });
