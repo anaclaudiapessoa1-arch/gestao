@@ -15,19 +15,19 @@ function Trofeu() {
   );
 }
 
-export function Certificado({ nome, mes, selo = "Funcionário destaque", assinatura = "Diretoria Executiva" }) {
+export function Certificado({ nome, mes, selo = "Funcionário destaque", assinatura = "Diretoria Executiva", titulo = "Certificado de Reconhecimento", texto = null, icone = <Trofeu />, apresentado = "Este certificado é orgulhosamente apresentado a" }) {
   return (
     <div className="cert">
       <div className="cert-folha">
         <span className="cert-canto a" /><span className="cert-canto b" />
         <img className="cert-logo" src={LOGO} alt="MinasLab" />
         <div className="cert-sublogo">Laboratório de Controle de Qualidade</div>
-        <div className="cert-titulo">Certificado de Reconhecimento</div>
-        <div className="cert-selo"><Trofeu />{selo}</div>
-        <div className="cert-apresentado">Este certificado é orgulhosamente apresentado a</div>
+        <div className="cert-titulo">{titulo}</div>
+        <div className="cert-selo">{icone}{selo}</div>
+        <div className="cert-apresentado">{apresentado}</div>
         <div className="cert-nome">{nome || "Nome do colaborador"}</div>
         <div className="cert-texto">
-          Em reconhecimento ao seu excelente desempenho, comprometimento intransigente com a qualidade e postura profissional exemplar demonstrados ao longo do mês de <b>{mesDoTexto(mes)}</b>, contribuindo ativamente para a melhoria contínua e o sucesso do MinasLab.
+          {texto || <>Em reconhecimento ao seu excelente desempenho, comprometimento intransigente com a qualidade e postura profissional exemplar demonstrados ao longo do mês de <b>{mesDoTexto(mes)}</b>, contribuindo ativamente para a melhoria contínua e o sucesso do MinasLab.</>}
         </div>
         <div className="cert-assinatura"><span /><b>{assinatura}</b><em>MinasLab</em></div>
       </div>

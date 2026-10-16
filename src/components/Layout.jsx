@@ -6,7 +6,7 @@ import { mesAtual, mesCurto } from "../lib/format.js";
 import {
   IcGrafico, IcLupa, IcBussola, IcFunil, IcPessoas, IcMedalha, IcAviso, IcAlvo, IcEngrenagem,
   IcCarteira, IcEstrela, IcMartelo, IcApresentacao, IcLivro, IcMenu, IcBalanca, IcPasta, IcTrofeu,
-  IcFrasco, IcCadeado, IcPulso,
+  IcFrasco, IcCadeado, IcPulso, IcCalendario,
 } from "./icones.jsx";
 
 // Ícone de cada página. O menu sai das páginas LIBERADAS para o usuário no
@@ -16,7 +16,7 @@ export const ICONES = {
   pessoas: IcPessoas, avaliacao: IcMedalha, destaque: IcTrofeu, ocorrencias: IcAviso,
   carteira: IcCarteira, satisfacao: IcEstrela, licitacoes: IcMartelo,
   estrategias: IcAlvo, decisoes: IcBalanca, funcoes: IcPasta, equipe: IcEngrenagem,
-  reunioes: IcApresentacao, treinamentos: IcLivro,
+  agenda: IcCalendario, reunioes: IcApresentacao, treinamentos: IcLivro,
   lab: IcFrasco, ncs: IcAviso, produtividade: IcPulso, acessos: IcCadeado,
 };
 

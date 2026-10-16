@@ -10,6 +10,7 @@ import { SlideML, Apresentador, ImpressaoDeck, nomeLayout } from "./Deck.jsx";
 import { CartaoAta } from "./AtaDocumento.jsx";
 import { baixarPptx } from "../lib/deckPptx.js";
 import { MODELOS, LAYOUTS, ROTULOS_CAMPOS, modeloPorId, slidesDoModelo, slideEmBranco, preencher } from "../lib/modelosApresentacao.js";
+import { TRILHAS, TEMAS } from "../lib/trilhas.js";
 import { usePesquisas, rankingDoMes, pesosDestaque } from "../pages/Destaque.jsx";
 import { podio } from "../lib/destaque.js";
 import { reduzirFoto, reduzirImagem } from "../lib/foto.js";
@@ -55,15 +56,26 @@ export function Estudio({ categoria }) {
   const { dados, remover, setor } = useBase();
   const [aberto, setAberto] = useState(null);
   const [novo, setNovo] = useState(null);
-  const modelos = MODELOS.filter((m) => (m.categoria === categoria || m.categoria === "ambos") && (!m.setor || m.setor === setor));
+  const [ver, setVer] = useState(null);
+  const [filtro, setFiltro] = useState("todos");
+  // Treinamento: todas as apresentações prontas, dos dois setores, por tema.
+  const todosModelos = MODELOS.filter((m) => (m.categoria === categoria || m.categoria === "ambos") && (categoria === "treinamento" || !m.setor || m.setor === setor));
+  const temaDe = (m) => TRILHAS.find((t) => t.modelo === m.id)?.tema || "branco";
+  const temasUsados = categoria === "treinamento" ? [...TEMAS.filter((t) => todosModelos.some((m) => temaDe(m) === t.id)), { id: "branco", nome: "Modelos em branco" }] : [];
+  const modelos = filtro === "todos" ? todosModelos : todosModelos.filter((m) => temaDe(m) === filtro);
   // Atas antigas importadas não são apresentações: aparecem só na aba Atas.
   const decks = dados.apresentacoes.filter((d) => d.categoria === categoria && !d.ataImportada).sort((a, b) => String(b.atualizadoEm || b.criadoEm).localeCompare(String(a.atualizadoEm || a.criadoEm)));
   const pag = usePaginacao(decks, 6);
   const deck = decks.find((d) => d.id === aberto);
   if (deck) return <Editor deck={deck} aoVoltar={() => setAberto(null)} />;
 
-  return (
+  const grade = (
     <>
+      {temasUsados.length > 0 && (
+        <div className="pilulas" role="group" aria-label="Filtrar por tema" style={{ flexWrap: "wrap" }}>
+          {[{ id: "todos", nome: `Todas (${todosModelos.length})` }, ...temasUsados].map((t) => <button key={t.id} type="button" className={`pilula${filtro === t.id ? " ativa" : ""}`} onClick={() => setFiltro(t.id)}>{t.nome}</button>)}
+        </div>
+      )}
       <div className="grade" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
         {modelos.map((m) => {
           const amostra = { ...m.slides()[0], id: "x" };
@@ -71,15 +83,21 @@ export function Estudio({ categoria }) {
             <Card key={m.id} className="modelo-cartao" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <SlideML s={amostra} ctx={{ tema: m.tema, valores: { mes: "Mês e ano", ano: "2026" } }} />
               <div><b>{m.nome}</b><div className="suave peq" style={{ marginTop: 2 }}>{m.desc}</div></div>
-              <button type="button" className="btn mini" style={{ marginTop: "auto", alignSelf: "flex-start" }} onClick={() => setNovo(m)}>Usar este modelo</button>
+              <div style={{ marginTop: "auto", display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <button type="button" className="btn mini" onClick={() => setNovo(m)}>Usar este modelo</button>
+                {categoria === "treinamento" && <button type="button" className="btn claro mini" onClick={() => setVer(m)}>Ver apresentação</button>}
+              </div>
             </Card>
           );
         })}
       </div>
+    </>
+  );
 
+  const lista = (
       <Card semPad>
         <div className="card-cab"><h2>Suas apresentações</h2><span className="suave peq">{decks.length}</span></div>
-        {decks.length === 0 ? <div className="vazio" style={{ padding: "0 20px 20px" }}>Nenhuma ainda. Escolha um modelo acima.</div> : (
+        {decks.length === 0 ? <div className="vazio" style={{ padding: "0 20px 20px" }}>Nenhuma ainda. Escolha um modelo{categoria === "treinamento" ? " abaixo" : " acima"}.</div> : (
           <div className="decks">
             {pag.itens.map((d) => (
               <div key={d.id} className="deck-item">
@@ -102,8 +120,28 @@ export function Estudio({ categoria }) {
         )}
         <Paginacao pag={pag} rotulo="apresentações" />
       </Card>
+  );
+
+  return (
+    <>
+      {categoria === "treinamento" ? <>{lista}<h2 style={{ fontSize: 18 }}>Apresentações prontas</h2>{grade}</> : <>{grade}{lista}</>}
+      {ver && <VerModelo modelo={ver} aoFechar={() => setVer(null)} aoUsar={() => { setVer(null); setNovo(ver); }} />}
       {novo && <NovaApresentacao modelo={novo} categoria={categoria} aoFechar={() => setNovo(null)} aoCriar={(id) => { setNovo(null); setAberto(id); }} />}
     </>
+  );
+}
+
+function VerModelo({ modelo, aoFechar, aoUsar }) {
+  const [slides] = useState(() => slidesDoModelo(modelo.id));
+  const [i, setI] = useState(0);
+  return (
+    <Modal titulo={modelo.nome} aoFechar={aoFechar} largo>
+      <Apresentador slides={slides} ctx={{ tema: modelo.tema, valores: { mes: "", ano: "" } }} i={i} setI={setI} />
+      <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap", alignItems: "center" }}>
+        <button type="button" className="btn" onClick={aoUsar}>Usar este modelo</button>
+        <span className="suave peq">Ao usar, a apresentação vira sua: dá para editar, baixar em PowerPoint e gerar a ata.</span>
+      </div>
+    </Modal>
   );
 }
 

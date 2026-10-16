@@ -41,3 +41,16 @@ test("matriz: cargos, período gravado, novos, ordem do que fazer e próxima dat
   assert.equal(periodosEmVigor([]).spin, 0);
   assert.deepEqual(agenda(registros, { desde: "2026-10-16" }).map((x) => x.id), ["ag1"]);
 });
+
+test("nota abaixo da mínima pede refazer; agenda realizada não conta como próxima", () => {
+  const trilhas = [{ id: "a", nome: "A" }];
+  const registros = [
+    { id: "periodicidade", periodos: { a: 12 } },
+    { id: "r1", trilhaId: "a", data: "2026-09-01", participantes: [{ pessoaId: "p1", presente: true, nota: 5 }] },
+    { id: "ag1", tipo: "agenda", trilhaId: "a", data: "2026-10-20", status: "realizado" },
+    { id: "ag2", tipo: "agenda", trilhaId: "a", data: "2026-11-20" },
+  ];
+  const m = matrizReciclagem({ trilhas, registros, pessoas: [{ id: "p1", nome: "Um" }], hoje: "2026-10-16" });
+  assert.equal(m.linhas[0].celulas.a.status, "refazer");
+  assert.equal(m.proxima.a.id, "ag2");
+});

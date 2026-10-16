@@ -1,7 +1,7 @@
 // Plano de treinamentos: para cada trilha, quais cargos precisam fazer, de
 // quanto em quanto tempo reciclar, o prazo para quem acabou de entrar e o
 // calendário de aplicação. Calcula a situação de cada pessoa. Regras puras.
-import { treinamentosDaPessoa } from "./treinamentosPessoa.js";
+import { treinamentosDaPessoa, notaDe, NOTA_MINIMA } from "./treinamentosPessoa.js";
 
 export const OPCOES_PERIODO = [
   [0, "Sem reciclagem"],
@@ -17,8 +17,11 @@ export const PERIODO_SUGERIDO = {
   "analise-critica": 12, "crm-sem-furos": 12, "proposta-sem-erro": 12, "os-correta": 12,
   atendimento: 12, tecnico: 24, licitacoes: 0, "follow-up": 0, spin: 0, gestora: 0,
   "pg012-satisfacao": 12, "pg013-reclamacoes": 12, "pg010-recebimento": 12, "pg011-armazenamento": 12,
-  "am-amostragem": 12, "am-coletas-especiais": 12, "am-purga": 12,
+  "am-amostragem": 12, "am-coletas-especiais": 12, "am-purga": 12, integracao: 0, "gestao-tempo": 12,
 };
+
+/** Prazo sugerido para quem acabou de entrar (dias). */
+export const PRAZO_NOVO_SUGERIDO = { integracao: 30 };
 
 export const AVISO_DIAS = 30;
 export const ID_CONFIG = "periodicidade";
@@ -26,7 +29,7 @@ export const ID_CONFIG = "periodicidade";
 /** Plano em vigor: o gravado (registro "periodicidade") ou as sugestões. */
 export function planoEmVigor(registros) {
   const cfg = (registros || []).find((r) => r.id === ID_CONFIG) || {};
-  return { periodos: { ...PERIODO_SUGERIDO, ...(cfg.periodos || {}) }, cargos: { ...(cfg.cargos || {}) }, prazoNovo: { ...(cfg.prazoNovo || {}) } };
+  return { periodos: { ...PERIODO_SUGERIDO, ...(cfg.periodos || {}) }, cargos: { ...(cfg.cargos || {}) }, prazoNovo: { ...PRAZO_NOVO_SUGERIDO, ...(cfg.prazoNovo || {}) } };
 }
 export const periodosEmVigor = (registros) => planoEmVigor(registros).periodos;
 
@@ -75,8 +78,8 @@ export function situacao(ultima, meses, hoje, { entrouEm = "", prazoNovo = 0 } =
 }
 
 /** Aplicações agendadas (registros tipo "agenda"), da mais próxima para a mais distante. */
-export function agenda(registros, { desde = "" } = {}) {
-  return (registros || []).filter((r) => r.tipo === "agenda" && (!desde || String(r.data) >= desde)).sort((a, b) => `${a.data}${a.hora || ""}`.localeCompare(`${b.data}${b.hora || ""}`));
+export function agenda(registros, { desde = "", soAbertas = false } = {}) {
+  return (registros || []).filter((r) => r.tipo === "agenda" && (!desde || String(r.data) >= desde) && (!soAbertas || !r.status || r.status === "agendado")).sort((a, b) => `${a.data}${a.hora || ""}`.localeCompare(`${b.data}${b.hora || ""}`));
 }
 
 /**
@@ -86,21 +89,24 @@ export function agenda(registros, { desde = "" } = {}) {
 export function matrizReciclagem({ trilhas, registros, pessoas, hoje }) {
   const plano = planoEmVigor(registros);
   const periodicas = (trilhas || []).filter((t) => noPlano(plano, t.id));
-  const futuras = agenda(registros, { desde: hoje });
+  const futuras = agenda(registros, { desde: hoje, soAbertas: true });
   const proxima = Object.fromEntries(periodicas.map((t) => [t.id, futuras.find((a) => a.trilhaId === t.id) || null]));
   const linhas = (pessoas || []).map((p) => {
     const feitos = treinamentosDaPessoa(registros, p);
     const celulas = Object.fromEntries(periodicas.map((t) => {
       if (!obrigatoria(plano, t.id, p)) return [t.id, { status: "nao-se-aplica" }];
-      const ultima = feitos.find((f) => f.trilhaId === t.id)?.data || null;
-      return [t.id, situacao(ultima, plano.periodos[t.id] || 0, hoje, { entrouEm: p.entrouEm || "", prazoNovo: plano.prazoNovo[t.id] || 0 })];
+      const feito = feitos.find((f) => f.trilhaId === t.id);
+      const ultima = feito?.data || null;
+      const sit = situacao(ultima, plano.periodos[t.id] || 0, hoje, { entrouEm: p.entrouEm || "", prazoNovo: plano.prazoNovo[t.id] || 0 });
+      const n = notaDe(feito?.nota);
+      return [t.id, n != null && n < NOTA_MINIMA ? { ...sit, status: "refazer", nota: n } : sit];
     }));
     return { pessoa: p, celulas };
   });
-  const ordem = { vencido: 0, vence: 1, pendente: 2, nunca: 3 };
+  const ordem = { vencido: 0, refazer: 1, vence: 2, pendente: 3, nunca: 4 };
   const pendencias = linhas.flatMap((l) => periodicas.map((t) => ({ pessoa: l.pessoa, trilha: t, agendada: proxima[t.id], ...l.celulas[t.id] })))
     .filter((x) => x.status in ordem)
     .sort((a, b) => ordem[a.status] - ordem[b.status] || String(a.vence || "9").localeCompare(String(b.vence || "9")));
   const conta = (s) => pendencias.filter((x) => x.status === s).length;
-  return { plano, periodicas, periodos: plano.periodos, linhas, pendencias, proxima, totais: { vencido: conta("vencido"), vence: conta("vence"), nunca: conta("nunca") + conta("pendente") } };
+  return { plano, periodicas, periodos: plano.periodos, linhas, pendencias, proxima, totais: { vencido: conta("vencido") + conta("refazer"), vence: conta("vence"), nunca: conta("nunca") + conta("pendente") } };
 }

@@ -5,8 +5,9 @@ import { SeletorMes } from "../components/Layout.jsx";
 import { navegar } from "../lib/rota.js";
 import { pct, mesLongo, mesNome, mesCurto, dataCurta, hojeBR, brl } from "../lib/format.js";
 import { realizado, metasDe, mediaAnterior, pontos, roteiroFeedback, serie } from "../lib/calculos.js";
-import { treinamentosDaPessoa } from "../lib/treinamentosPessoa.js";
-import { trilhaPorId, trilhasDoSetor } from "../lib/trilhas.js";
+import { treinamentosDaPessoa, fmtNota, aprovado } from "../lib/treinamentosPessoa.js";
+import { catalogo, trilhaEmQualquerLugar } from "../lib/catalogo.js";
+import { BotaoCertificado } from "../components/CertificadoTreinamento.jsx";
 import { matrizReciclagem } from "../lib/reciclagem.js";
 import { Desenvolvimento } from "../components/Desenvolvimento.jsx";
 import { Orientacao } from "../components/Orientacao.jsx";
@@ -37,7 +38,8 @@ export default function Pessoas({ param }) {
   const fbs = membro ? dados.feedbacks.filter((f) => f.pessoaId === membro.id).sort((a, b) => String(b.data).localeCompare(String(a.data))) : [];
   const pagFb = usePaginacao(fbs, 5, membro?.id);
   const treinos = treinamentosDaPessoa(dados.treinamentos, membro);
-  const recic = matrizReciclagem({ trilhas: trilhasDoSetor(setor), registros: dados.treinamentos, pessoas: membro ? [membro] : [], hoje: hojeBR() });
+  const cat = catalogo(dados.treinamentos, setor);
+  const recic = matrizReciclagem({ trilhas: cat.ativos.filter((t) => t.obrigatorio), registros: dados.treinamentos, pessoas: membro ? [membro] : [], hoje: hojeBR() });
 
   if (!membro) {
     return (
@@ -165,7 +167,7 @@ export default function Pessoas({ param }) {
           <div className="card-cab"><h3>Treinamentos obrigatórios do cargo</h3><span className="suave peq">pelo plano de treinamentos</span></div>
           <div className="tabela-caixa"><table>
             <thead><tr><th>Treinamento</th><th>Última vez</th><th>Próxima até</th><th>Situação</th><th>Agendado</th></tr></thead>
-            <tbody>{recic.periodicas.filter((t) => recic.linhas[0].celulas[t.id].status !== "nao-se-aplica").map((t) => { const c = recic.linhas[0].celulas[t.id]; const tom = { "em-dia": "ok", vence: "alerta", vencido: "ruim", nunca: "neutro", pendente: "alerta" }[c.status]; const rot = { "em-dia": "Em dia", vence: "Vence em breve", vencido: "Vencido", nunca: "Nunca fez", pendente: "Novo: fazer" }[c.status]; const ag = recic.proxima[t.id]; return (
+            <tbody>{recic.periodicas.filter((t) => recic.linhas[0].celulas[t.id].status !== "nao-se-aplica").map((t) => { const c = recic.linhas[0].celulas[t.id]; const tom = { "em-dia": "ok", vence: "alerta", vencido: "ruim", refazer: "ruim", nunca: "neutro", pendente: "alerta" }[c.status]; const rot = { "em-dia": "Em dia", vence: "Vence em breve", vencido: "Vencido", refazer: "Refazer (nota baixa)", nunca: "Nunca fez", pendente: "Novo: fazer" }[c.status]; const ag = recic.proxima[t.id]; return (
               <tr key={t.id}><td>{t.nome}</td><td className="tnum">{c.ultima ? dataCurta(c.ultima) : "—"}</td><td className="tnum">{c.vence ? dataCurta(c.vence) : "—"}</td><td><Chip tom={tom}>{rot}</Chip></td><td className="tnum">{ag ? dataCurta(ag.data) : "—"}</td></tr>
             ); })}</tbody>
           </table></div>
@@ -174,15 +176,20 @@ export default function Pessoas({ param }) {
           <div className="card-cab"><h3>Treinamentos de {membro.nome}</h3><span className="suave peq">{treinos.length} registro(s)</span></div>
           {treinos.length === 0 ? <div className="vazio peq" style={{ padding: "0 20px 20px" }}>Nenhum treinamento registrado ainda. Registre em Treinamentos › Trilhas › Registrar aplicação.</div> : (
             <div className="tabela-caixa"><table>
-              <thead><tr><th>Data</th><th>Treinamento</th><th>Nota do teste</th><th>Observações</th></tr></thead>
-              <tbody>{treinos.map((t) => (
-                <tr key={t.id}>
-                  <td className="tnum">{dataCurta(t.data)}</td>
-                  <td>{trilhaPorId(t.trilhaId)?.nome || t.titulo || "Treinamento"}</td>
-                  <td className="tnum">{t.nota == null ? "—" : `${t.nota}%`}</td>
-                  <td className="peq suave">{t.obs}</td>
-                </tr>
-              ))}</tbody>
+              <thead><tr><th>Data</th><th>Treinamento</th><th>Nota do teste (0 a 10)</th><th>Observações</th><th>Certificado</th></tr></thead>
+              <tbody>{treinos.map((t) => {
+                const tr = trilhaEmQualquerLugar(cat, t.trilhaId);
+                const nome = tr?.nome || t.titulo || "Treinamento";
+                return (
+                  <tr key={t.id}>
+                    <td className="tnum">{dataCurta(t.data)}</td>
+                    <td>{nome}</td>
+                    <td className="tnum">{fmtNota(t.nota)}</td>
+                    <td className="peq suave">{t.obs}</td>
+                    <td>{aprovado({ presente: true, nota: t.nota }) ? <BotaoCertificado dados={{ nome: membro.nome, treinamento: nome, documento: tr?.documento, data: t.data, minutos: tr?.minutos, nota: t.nota, instrutor: t.instrutor }} /> : <Chip tom="alerta">Refazer</Chip>}</td>
+                  </tr>
+                );
+              })}</tbody>
             </table></div>
           )}
         </Card>}

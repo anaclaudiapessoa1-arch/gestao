@@ -152,7 +152,7 @@ export const MODELOS_PG = [
 
 // ------------------------------------------------------------ trilhas
 /** Teste da trilha a partir dos quizzes do modelo (a certa vem marcada com *). */
-function perguntasDoModelo(fabrica) {
+export function perguntasDoModelo(fabrica) {
   return fabrica().filter((s) => s.layout === "quiz").map((s) => {
     const ops = String(s.itens).split("\n").map((x) => x.trim()).filter(Boolean);
     return { p: s.texto, opcoes: ops.map((o) => o.replace(/^\*\s*/, "")), certa: ops.findIndex((o) => o.startsWith("*")) };
@@ -170,7 +170,7 @@ const roteiro = (abertura, min = 40) => {
 
 export const TRILHAS_PG = [
   {
-    id: "pg012-satisfacao", setor: "comercial", modelo: "pg012-satisfacao", minutos: 40,
+    id: "pg012-satisfacao", setores: ["comercial"], tema: "atendimento", modelo: "pg012-satisfacao", minutos: 40,
     nome: "Satisfação do cliente (PG 012)", publico: "Comercial e atendimento",
     objetivo: "Aplicar a pesquisa de satisfação do PG 012: envio semestral, retorno mínimo, cálculo com pesos, meta de 85% e tratativa das notas ruins e regulares.",
     gatilho: "nps", indicador: "Satisfação geral (meta: 85%) e clientes com nota baixa",
@@ -180,8 +180,8 @@ export const TRILHAS_PG = [
     perguntas: perguntasDoModelo(PG012),
   },
   {
-    id: "pg013-reclamacoes", setor: "comercial", modelo: "pg013-reclamacoes", minutos: 40,
-    nome: "Tratamento de reclamações (PG 013)", publico: "Comercial, administrativo e gerência",
+    id: "pg013-reclamacoes", setores: ["comercial", "laboratorio"], tema: "qualidade", modelo: "pg013-reclamacoes", minutos: 40,
+    nome: "Tratamento de reclamações (PG 013)", publico: "Comercial, administrativo, gerência e laboratório",
     objetivo: "Toda reclamação, formal ou informal, registrada no RRC, analisada por quem não participou do serviço, tratada pela causa raiz e encerrada com o cliente informado.",
     gatilho: "ocorrencia:Atendimento", indicador: "Ocorrências do tipo “Atendimento” e reclamações em aberto",
     slides: ["Toda reclamação, formal ou informal, vai para o RRC.", "Imparcial: analisada por quem não participou do serviço.", "Classificação crítica, alta, média ou baixa; crítica pede ação imediata.", "Causa raiz (5 porquês, Ishikawa) e ação corretiva pelo PG 014.", "Resposta clara, técnica, com evidência e rastreável; só encerra com tudo registrado."],
@@ -190,8 +190,8 @@ export const TRILHAS_PG = [
     perguntas: perguntasDoModelo(PG013),
   },
   {
-    id: "pg010-recebimento", setor: "laboratorio", modelo: "pg010-recebimento", minutos: 30,
-    nome: "Inspeção de recebimento (PG 010)", publico: "Laboratório, recepção e almoxarifado",
+    id: "pg010-recebimento", setores: ["laboratorio", "comercial"], tema: "qualidade", modelo: "pg010-recebimento", minutos: 30,
+    nome: "Inspeção de recebimento (PG 010)", publico: "Laboratório, recepção, almoxarifado e administrativo (recebimento e compras)",
     objetivo: "Nenhum insumo crítico ou serviço (como calibração) é usado sem inspeção registrada no IR ou no RIS, com verificação do lote na bancada.",
     gatilho: "ocorrencia:Não conformidade POP", indicador: "Ocorrências “Não conformidade POP” ligadas a insumos e calibração",
     slides: ["Itens inspecionados: LISIR.", "Insumo: formulário IR assim que recebido, antes de usar.", "Serviço: RIS; calibração só com provedor acreditado ISO/IEC 17025 e FM-LAB-019.", "Bancada: pré-teste ou primeiro uso de cada lote crítico.", "Problema no insumo: repetir com o mesmo; persistiu, outro lote ou fabricante."],
@@ -200,8 +200,8 @@ export const TRILHAS_PG = [
     perguntas: perguntasDoModelo(PG010),
   },
   {
-    id: "pg011-armazenamento", setor: "laboratorio", modelo: "pg011-armazenamento", minutos: 30,
-    nome: "Armazenamento de materiais (PG 011)", publico: "Laboratório, recepção e almoxarifado",
+    id: "pg011-armazenamento", setores: ["laboratorio", "comercial"], tema: "qualidade", modelo: "pg011-armazenamento", minutos: 30,
+    nome: "Armazenamento de materiais (PG 011)", publico: "Laboratório, recepção de amostras, almoxarifado e administrativo",
     objetivo: "Materiais armazenados conforme o CAM, estoque lançado no CEG a cada movimento, validade sinalizada por etiqueta e descarte registrado.",
     gatilho: "ocorrencia:Não conformidade POP", indicador: "Itens vencidos encontrados nas inspeções e ocorrências “Não conformidade POP”",
     slides: ["CAM: onde e como guardar (anual ou quando mudar).", "CEG: toda entrada e saída, na hora.", "RAAM: situação dos reagentes (trimestral).", "Etiqueta vermelha = vence no mês; amarela = até seis meses.", "Descarte no FM-LAB-083; resíduos por empresa especializada."],
@@ -210,8 +210,8 @@ export const TRILHAS_PG = [
     perguntas: perguntasDoModelo(PG011),
   },
   {
-    id: "am-amostragem", setor: "laboratorio", modelo: "am-amostragem", minutos: 45,
-    nome: "Amostragem e controles de campo (POP-AM-001)", publico: "Amostragem (coletores) e responsável técnico",
+    id: "am-amostragem", setores: ["laboratorio", "comercial"], tema: "amostragem", modelo: "am-amostragem", minutos: 45,
+    nome: "Amostragem e controles de campo (POP-AM-001)", publico: "Coletores, responsável técnico e comercial (cadeia de custódia e orientação de coleta)",
     objetivo: "Coletas padronizadas e rastreáveis, com os brancos e duplicatas do plano executados, temperatura ≤ 6 °C na chegada e tudo registrado no aplicativo.",
     gatilho: "ocorrencia:Não conformidade POP", indicador: "NC de amostragem (temperatura, preservação, brancos não feitos)",
     slides: ["Frascos limpos, preservação pelo FORPRES 001 e cadeia de custódia do comercial.", "Controles: branco de viagem, equipamento, campo, amostragem, duplicata (1 a cada 10) e temperatura (1 por caixa).", "Aceitação: brancos ≤ ½ LQ, DPR ≤ 20%, ≤ 6 °C na chegada.", "Micro primeiro; parâmetros de campo em até 15 min; micro no laboratório em até 24 h.", "Aspecto (POP-AM-006) e registro no aplicativo de coletas."],
@@ -220,7 +220,7 @@ export const TRILHAS_PG = [
     perguntas: perguntasDoModelo(AMOSTRAGEM),
   },
   {
-    id: "am-coletas-especiais", setor: "laboratorio", modelo: "am-coletas-especiais", minutos: 40,
+    id: "am-coletas-especiais", setores: ["laboratorio"], tema: "amostragem", modelo: "am-coletas-especiais", minutos: 40,
     nome: "Coletas especiais: altura, vazão e solo", publico: "Amostragem (coletores)",
     objetivo: "Coleta em altura só com PT e dois coletores, vazão calculada corretamente em campo e amostras de solo compostas e representativas.",
     gatilho: "ocorrencia:Não conformidade POP", indicador: "Ocorrências em coletas de altura, vazão e solo",
@@ -230,7 +230,7 @@ export const TRILHAS_PG = [
     perguntas: perguntasDoModelo(COLETAS_ESPECIAIS),
   },
   {
-    id: "am-purga", setor: "laboratorio", modelo: "am-purga", minutos: 45,
+    id: "am-purga", setores: ["laboratorio"], tema: "amostragem", modelo: "am-purga", minutos: 45,
     nome: "Água subterrânea: purga de baixa vazão (POP-AM-005)", publico: "Amostragem (coletores) e responsável técnico",
     objetivo: "Purga com rebaixamento controlado (até 25 cm), parâmetros estabilizados em 3 leituras e coleta na vazão certa, tudo registrado na FM-LAB-050.",
     gatilho: "ocorrencia:Não conformidade POP", indicador: "Ocorrências em amostragem de água subterrânea",

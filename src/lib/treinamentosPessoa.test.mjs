@@ -20,3 +20,13 @@ test("perfil: conta presença pelo id da equipe ou pelo id do RH, mais recente p
   assert.deepEqual(r.map((x) => x.id), ["b", "a"]);
   assert.equal(r[1].nota, 80);
 });
+
+import { notaDe, fmtNota, mediaNotas, aprovado } from "./treinamentosPessoa.js";
+test("nota de 0 a 10, com registros antigos em porcentagem", () => {
+  assert.equal(notaDe(10), 10);
+  assert.equal(notaDe(90), 9);
+  assert.equal(fmtNota(9.5), "9,5");
+  assert.equal(mediaNotas([{ nota: 10 }, { nota: 10 }, { nota: 10 }]), 10);
+  assert.equal(aprovado({ presente: true, nota: 6 }), false);
+  assert.equal(aprovado({ presente: true, nota: null }), true);
+});

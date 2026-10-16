@@ -19,10 +19,11 @@ export const SETORES = {
 export const CHAVES = [
   "equipe", "config", "ocorrencias", "avaliacoes", "feedbacks", "estrategias", "funcoes", "pdi",
   "treinamentos", "reunioes", "decisoes", "objetivos", "acoes", "nps", "destaque", "apresentacoes",
-  "fotos", "ncs", "produtividade",
+  "fotos", "ncs", "produtividade", "agenda",
 ];
 
-const COMPARTILHADAS = { destaque: "rh_comercial_destaque", fotos: "rh_comercial_fotos" };
+// A agenda de reuniões e compromissos é uma só para os dois setores.
+const COMPARTILHADAS = { destaque: "rh_comercial_destaque", fotos: "rh_comercial_fotos", agenda: "rh_comercial_agenda" };
 const tem = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 export const colecaoDe = (setor, chave) => (tem(COMPARTILHADAS, chave) ? COMPARTILHADAS[chave] : `${SETORES[setor].prefixo}${chave}`);
 
@@ -45,6 +46,7 @@ const GESTAO = (s) => [
   P("equipe", "Equipe e metas", "Gestão", ["equipe", "config"], COM(s, "resumo")),
 ];
 const DESENV = (s) => [
+  P("agenda", "Agenda", "Desenvolvimento", ["agenda", "treinamentos", "apresentacoes"]),
   P("reunioes", "Reuniões e apresentações", "Desenvolvimento", ["apresentacoes", "reunioes", "decisoes", "destaque", "fotos"],
     s === "comercial" ? ["resumo", "cockpit", "carteira", "setores", "pesquisaListar"] : ["setores", "labPainel", "pesquisaListar"]),
   P("treinamentos", "Treinamentos", "Desenvolvimento", ["treinamentos", "apresentacoes"]),

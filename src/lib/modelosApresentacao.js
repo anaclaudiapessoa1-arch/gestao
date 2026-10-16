@@ -10,6 +10,7 @@
 
 import { novoId } from "./format.js";
 import { MODELOS_PG } from "./treinamentosPG.js";
+import { MODELOS_TRILHAS } from "./treinamentosTrilhas.js";
 
 export const LAYOUTS = {
   capa: { nome: "Capa", campos: ["titulo", "subtitulo", "texto", "destaque"], ajuda: { destaque: "Só no estilo colorido: palavras separadas por · viram pílulas coloridas." } },
@@ -100,7 +101,12 @@ const INTEGRACAO = () => [
   S("colunas", { titulo: "Uniforme, apresentação e uso de celular", itens: "## Uniforme e apresentação\n- O uniforme deve ser usado conforme orientação da empresa\n- Mantenha boa higiene e apresentação pessoal\n- O uniforme representa a imagem da empresa perante os clientes\n## Uso de celular\n- O uso de celular é restrito durante o expediente\n- No laboratório, o uso fora dos horários de intervalo pode resultar em advertências\n- Os aparelhos devem ficar guardados nos armários disponibilizados pela empresa" }),
   S("colunas", { titulo: "Veículos da empresa", itens: "## Uso exclusivo profissional\nOs veículos devem ser usados exclusivamente para atividades profissionais.\n## Normas e regras\nRespeite as normas de trânsito e as regras internas de uso dos veículos.", destaque: "Atenção: multas e infrações são de responsabilidade do condutor." }),
   S("fluxo", { titulo: "Penalidades", itens: "1 | Advertência verbal\n2 | Advertência escrita\n3 | Nova advertência escrita\n4 | Suspensão\n5 | Nova suspensão\n6 | Demissão por justa causa!", destaque: "As medidas são aplicadas de forma progressiva, conforme a gravidade de cada ocorrência." }, "O descumprimento das normas pode resultar nestas medidas. Fale da regra, nunca de casos de pessoas."),
-  S("topicos", { titulo: "Verificação de aprendizado", texto: "1. Até quantos graus uma amostra de água pode chegar sem abrir NC?\n2. O que fazer quando a placa de microbiologia chega gelada?\n3. Solo chegou em temperatura ambiente, sem sinais de degradação: abre NC?\n4. Cite os 4 pilares da ISO/IEC 17025.\n5. Qual ensaio precisa do resultado de cloretos antes de ser liberado?\n6. Cite três informações que são confidenciais.\n7. Onde o celular deve ficar durante o expediente no laboratório?" }, "Respostas: 1) 6 °C · 2) NC automática · 3) Não · 4) Imparcialidade, rastreabilidade, competência técnica, garantia da qualidade · 5) Sódio · 6) Informações técnicas, dados de clientes, metodologias, informações estratégicas · 7) Guardado nos armários. Registre as notas em Treinamentos › Registrar aplicação."),
+  S("quiz", { titulo: "Quiz", texto: "Até quantos graus uma amostra de água pode chegar sem abrir NC?", itens: "10 °C\n* 6 °C\n0 °C", destaque: "Águas: até 6 °C. Acima disso, NC de temperatura na triagem." }),
+  S("quiz", { titulo: "Quiz", texto: "A placa de microbiologia chegou gelada. O que fazer?", itens: "Receber normalmente\n* Abrir NC: placa de monitoramento não deve ser refrigerada\nDeixar esquentar e receber", destaque: "Placas vão em temperatura ambiente e no mesmo dia. Gelada: NC automática." }),
+  S("quiz", { titulo: "Quiz", texto: "Solo chegou em temperatura ambiente, sem sinais de degradação. Abre NC?", itens: "Sim, sempre\n* Não, solo não tem exigência de conservação térmica\nSó se for de cliente novo", destaque: "Solo pode ser recebido em temperatura ambiente." }),
+  S("quiz", { titulo: "Quiz", texto: "Quais são os 4 pilares da ISO/IEC 17025?", itens: "Preço, prazo, qualidade e volume\n* Imparcialidade, rastreabilidade, competência técnica e garantia da qualidade\nVendas, coleta, análise e relatório", destaque: "Os 4 pilares do módulo 1." }),
+  S("quiz", { titulo: "Quiz", texto: "Qual destas é uma informação confidencial?", itens: "O endereço do site da MinasLab\n* Os dados de clientes\nO horário de funcionamento", destaque: "Confidenciais: informações técnicas, dados de clientes, metodologias e informações estratégicas." }),
+  S("quiz", { titulo: "Quiz", texto: "Onde o celular deve ficar durante o expediente no laboratório?", itens: "No bolso do jaleco\n* Guardado nos armários\nNa bancada, no silencioso", destaque: "Regra da Declaração de Ética: celular guardado nos armários."  }),
   S("encerramento", { titulo: "Seja bem-vindo ao time!", subtitulo: "A MinasLab espera que todos atuem com ética, responsabilidade, respeito, comprometimento e espírito de equipe.", texto: "O cumprimento dessas diretrizes contribui para um ambiente de trabalho seguro, harmonioso e focado na excelência dos serviços prestados aos clientes." }),
   S("encerramento", { titulo: "Dúvidas?", subtitulo: "A aplicação rigorosa dessas regras constrói nossa autoridade técnica e garante resultados incontestáveis.", texto: "MinasLab Análises Ambientais · Excelência, Precisão, Imparcialidade e Agilidade" }),
 ];
@@ -168,7 +174,7 @@ const TREINAMENTO = () => [
   S("numero", { titulo: "Regra de ouro", numero: "1", rotulo: "regra que ninguém pode esquecer", texto: "Escreva a regra em uma frase." }),
   S("fluxo", { titulo: "Passo a passo", itens: "Passo 1 | detalhe\nPasso 2 | detalhe\nPasso 3 | detalhe" }),
   S("topicos", { titulo: "Na prática", texto: "Exercício com um caso real da casa:\n____" }, "Use um caso do mês. Exemplo genérico ensina menos."),
-  S("topicos", { titulo: "Verificação de aprendizado", texto: "1. ____\n2. ____\n3. ____" }),
+  S("quiz", { titulo: "Quiz", texto: "Escreva a pergunta ou o caso", itens: "Alternativa errada\n* Alternativa certa\nOutra alternativa errada", destaque: "Explique por que essa é a resposta certa." }, "Copie este slide para cada pergunta. A turma vota antes de você revelar."),
   S("compromissos", { titulo: "Compromissos" }),
   S("encerramento", { titulo: "Dúvidas?", subtitulo: "Obrigado pela atenção!", texto: "MinasLab · Compromisso com a Qualidade" }),
 ];
@@ -183,10 +189,11 @@ export const MODELOS = [
   { id: "mensal", categoria: "reuniao", nome: "Reunião mensal de resultados", desc: "A reunião geral do mês: calendário, avisos, indicadores do CRM, ranking e destaque. Você só completa o que mudou.", titulo: "Reunião mensal de resultados · {mes}", slides: MENSAL },
   { id: "comercial", categoria: "reuniao", setor: "comercial", nome: "Reunião do Comercial", desc: "Só a equipe comercial: indicadores do CRM, propostas em aberto, carteira, qualidade do registro e metas do próximo mês.", titulo: "Reunião do Comercial · {mes}", slides: COMERCIAL },
   { id: "laboratorio", categoria: "reuniao", setor: "laboratorio", nome: "Reunião do Laboratório", desc: "Só a equipe do laboratório: amostras por setor, prazos e OS atrasadas, não conformidades, produtividade e metas.", titulo: "Reunião do Laboratório · {mes}", slides: LABORATORIO },
-  { id: "integracao", categoria: "treinamento", nome: "Integração de novos colaboradores", desc: "Módulo 1: ISO/IEC 17025, escopo CRL 1943, matrizes e recepção de amostras. Módulo 2: Declaração de Ética. Com teste no final.", titulo: "Integração e Capacitação Técnica", slides: INTEGRACAO },
+  { id: "integracao", categoria: "treinamento", tema: "colorido", nome: "Integração de novos colaboradores", desc: "Módulo 1: ISO/IEC 17025, escopo CRL 1943, matrizes e recepção de amostras. Módulo 2: Declaração de Ética. Com teste no final.", titulo: "Integração e Capacitação Técnica", slides: INTEGRACAO },
   { id: "analise-critica", categoria: "treinamento", setor: "comercial", tema: "colorido", nome: "Análise crítica de propostas (ISO 17025)", desc: "PG 006 e requisito 7.1 da ISO/IEC 17025: checklist, fluxo da proposta, aceite do cliente e casos reais em quiz. Estilo colorido.", titulo: "Análise Crítica de Propostas · PG 006", slides: ANALISE_CRITICA },
   ...MODELOS_PG,
-  { id: "treinamento", categoria: "treinamento", nome: "Novo treinamento", desc: "Estrutura pronta: o número que queremos mudar, objetivo, conteúdo, regra de ouro, prática e teste.", titulo: "Novo treinamento", slides: TREINAMENTO },
+  ...MODELOS_TRILHAS,
+  { id: "treinamento", categoria: "treinamento", tema: "colorido", nome: "Novo treinamento", desc: "Estrutura pronta: o número que queremos mudar, objetivo, conteúdo, regra de ouro, prática e teste.", titulo: "Novo treinamento", slides: TREINAMENTO },
   { id: "livre", categoria: "ambos", nome: "Em branco", desc: "Capa, um slide e encerramento. Monte do seu jeito.", titulo: "Nova apresentação", slides: LIVRE },
 ];
 

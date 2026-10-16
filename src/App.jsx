@@ -27,13 +27,14 @@ import Laboratorio from "./pages/Laboratorio.jsx";
 import NaoConformidades from "./pages/NaoConformidades.jsx";
 import Produtividade from "./pages/Produtividade.jsx";
 import Acessos from "./pages/Acessos.jsx";
+import Agenda from "./pages/Agenda.jsx";
 
 const TELAS = {
   cockpit: Cockpit, visao: VisaoMes, funil: Funil, dado: QualidadeDado,
   pessoas: Pessoas, avaliacao: Avaliacao, ocorrencias: Ocorrencias,
   carteira: Carteira, satisfacao: Satisfacao, licitacoes: Licitacoes,
   estrategias: Estrategias, decisoes: Decisoes, funcoes: Funcoes, equipe: Equipe,
-  reunioes: Reunioes, treinamentos: Treinamentos, destaque: Destaque,
+  agenda: Agenda, reunioes: Reunioes, treinamentos: Treinamentos, destaque: Destaque,
   lab: Laboratorio, ncs: NaoConformidades, produtividade: Produtividade, acessos: Acessos,
 };
 

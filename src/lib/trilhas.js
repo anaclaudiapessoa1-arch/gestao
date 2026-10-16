@@ -3,6 +3,9 @@
 // teste rápido. `gatilho` diz qual número do sistema sugere a trilha.
 
 import { TRILHAS_PG } from "./treinamentosPG.js";
+import { TRILHA_GESTAO_TEMPO } from "./treinamentosTrilhas.js";
+import { modeloPorId } from "./modelosApresentacao.js";
+import { perguntasDoModelo } from "./treinamentosPG.js";
 
 const TRILHAS_COMERCIAL = [
   {
@@ -64,7 +67,7 @@ const TRILHAS_COMERCIAL = [
   {
     id: "analise-critica",
     nome: "Análise crítica de propostas (PG 006)",
-    publico: "Comercial e quem elabora propostas",
+    publico: "Comercial, administrativo, gerência técnica e coletores",
     minutos: 40,
     modelo: "analise-critica",
     objetivo: "Toda proposta passa pela análise crítica do PG 006 (ISO/IEC 17025, 7.1) antes de ir ao cliente, com aceite e alterações registrados.",
@@ -264,8 +267,66 @@ const TRILHAS_COMERCIAL = [
   },
 ];
 
-/** Todas as trilhas; cada uma pertence a um setor (Comercial ou Laboratório). */
-export const TRILHAS = [...TRILHAS_COMERCIAL.map((t) => ({ setor: "comercial", ...t })), ...TRILHAS_PG];
-export const trilhasDoSetor = (setor) => TRILHAS.filter((t) => t.setor === setor);
+/** Temas em que as trilhas são agrupadas na tela. */
+export const TEMAS = [
+  { id: "integracao", nome: "Integração", desc: "Boas-vindas, ISO/IEC 17025, escopo e ética para quem chega." },
+  { id: "qualidade", nome: "ISO/IEC 17025 e qualidade", desc: "Procedimentos gerais (PG): análise crítica, recebimento, armazenamento, reclamações." },
+  { id: "amostragem", nome: "Amostragem e coleta", desc: "POPs de amostragem: controles de campo, altura, vazão, solo e água subterrânea." },
+  { id: "vendas", nome: "Vendas, propostas e OS", desc: "CRM, follow-up, proposta, venda consultiva, licitações e ordem de serviço." },
+  { id: "atendimento", nome: "Atendimento ao cliente", desc: "Atendimento, pós-venda e pesquisa de satisfação (PG 012)." },
+  { id: "tecnico", nome: "Conhecimento técnico", desc: "Ensaios, matrizes, legislação e prazos." },
+  { id: "gestao", nome: "Gestão e desenvolvimento", desc: "Gestão do tempo, feedback, 1:1 e reuniões." },
+  { id: "proprios", nome: "Criados por você", desc: "Treinamentos cadastrados na tela." },
+];
+
+// Setores e tema de cada trilha do Comercial original. Os que também valem
+// para o laboratório (gerência técnica, coletores) aparecem nos dois setores.
+const EXTRA = {
+  "crm-sem-furos": [["comercial"], "vendas"], "follow-up": [["comercial"], "vendas"],
+  "analise-critica": [["comercial", "laboratorio"], "qualidade"], "proposta-sem-erro": [["comercial"], "vendas"],
+  spin: [["comercial"], "vendas"], tecnico: [["comercial"], "tecnico"], atendimento: [["comercial"], "atendimento"],
+  licitacoes: [["comercial"], "vendas"], "os-correta": [["comercial", "laboratorio"], "vendas"],
+  gestora: [["comercial", "laboratorio"], "gestao"],
+};
+
+const INTEGRACAO = {
+  id: "integracao", modelo: "integracao", minutos: 60, tema: "integracao", setores: ["comercial", "laboratorio"],
+  nome: "Integração de novos colaboradores", publico: "Todo colaborador novo",
+  objetivo: "Quem chega conhece a ISO/IEC 17025, o escopo acreditado (CRL 1943), as regras de recebimento e a Declaração de Ética.",
+  gatilho: "novos", indicador: "Novos colaboradores integrados no prazo",
+  slides: ["Os 4 pilares da ISO/IEC 17025.", "Escopo acreditado CRL 1943 e matrizes.", "Recepção: temperatura, frascos e placas.", "Declaração de Ética: comportamento, confidencialidade, segurança."],
+  exercicio: "Acompanhe uma recepção de amostras com a pessoa nova e peça para ela conferir temperatura, frascos e lacres.",
+};
+
+const DOCUMENTOS = {
+  "analise-critica": "PG 006 rev. 03", "pg012-satisfacao": "PG 012 rev. 02", "pg013-reclamacoes": "PG 013 rev. 03",
+  "pg010-recebimento": "PG 010 rev. 02", "pg011-armazenamento": "PG 011 rev. 02",
+  "am-amostragem": "POP-AM-001 rev. 04, PL AM-001 e POP-AM-006", "am-coletas-especiais": "POP-AM-002, POP-AM-003 e POP-AM-004",
+  "am-purga": "POP-AM-005 (ABNT NBR 15847)", integracao: "Manual de integração e Declaração de Ética",
+};
+
+const comModelo = (t) => {
+  const m = t.modelo || (modeloPorId(t.id) ? t.id : null);
+  const perguntas = m && modeloPorId(m) ? perguntasDoModelo(modeloPorId(m).slides) : [];
+  return { documento: DOCUMENTOS[t.id] || "", ...t, modelo: m, perguntas: perguntas.length ? perguntas : t.perguntas || [] };
+};
+const roteiroPadrao = (min) => {
+  const a = Math.round(min * 0.45), b = Math.round(min * 0.7);
+  return [
+    { min: "0–5", passo: "Abertura com um caso real da casa." },
+    { min: `5–${a}`, passo: "Apresentação colorida." },
+    { min: `${a}–${b}`, passo: "Quizzes em grupo: a turma vota em cada caso antes de você revelar a resposta." },
+    { min: `${b}–${min}`, passo: "Exercício prático e teste individual. Registre as notas em Registrar aplicação." },
+  ];
+};
+
+/** Todas as trilhas. Cada uma vale para um ou mais setores e pertence a um tema. */
+export const TRILHAS = [
+  comModelo({ ...INTEGRACAO, roteiro: roteiroPadrao(60) }),
+  ...TRILHAS_COMERCIAL.map((t) => comModelo({ ...t, setores: EXTRA[t.id]?.[0] || ["comercial"], tema: EXTRA[t.id]?.[1] || "vendas" })),
+  ...TRILHAS_PG.map(comModelo),
+  comModelo({ ...TRILHA_GESTAO_TEMPO, roteiro: roteiroPadrao(40) }),
+];
+export const trilhasDoSetor = (setor) => TRILHAS.filter((t) => t.setores.includes(setor));
 
 export const trilhaPorId = (id) => TRILHAS.find((t) => t.id === id);
