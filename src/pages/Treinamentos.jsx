@@ -9,7 +9,7 @@ import { Slides } from "../components/Slides.jsx";
 import { Apresentador } from "../components/Deck.jsx";
 import { slidesDoModelo, modeloPorId } from "../lib/modelosApresentacao.js";
 import { npsCRM, licitacoesCRM } from "../services/crm.js";
-import { TRILHAS, trilhaPorId } from "../lib/trilhas.js";
+import { trilhasDoSetor, trilhaPorId } from "../lib/trilhas.js";
 import { pessoasParaTreinamento } from "../lib/treinamentosPessoa.js";
 import { matrizReciclagem, OPCOES_PERIODO, OPCOES_PRAZO_NOVO, ID_CONFIG, planoEmVigor, agenda } from "../lib/reciclagem.js";
 import { hojeBR, dataCurta, mesAtual, somarMeses, mesDeData, mesNome, pct, nomeProprio } from "../lib/format.js";
@@ -18,35 +18,38 @@ const norm = (t) => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g,
 import { totaisMes, realizado, metasDe } from "../lib/calculos.js";
 
 /** Por que cada trilha está sugerida agora (ou null). */
-function motivos({ resumo, equipe, dados, nps, lics }) {
+function motivos({ resumo, equipe, dados, nps, lics, trilhas, setor }) {
   const m = mesAtual();
   const ant = somarMeses(m, -1);
   const out = {};
+  const com = setor === "comercial" && resumo;
+  if (com) {
   const t = totaisMes(resumo, ant);
   const tAtual = totaisMes(resumo, m);
   const pctSem = Math.max(t.pctSemResponsavel || 0, tAtual.pctSemResponsavel || 0);
   if (pctSem > 5) out["crm-sem-furos"] = `${pct(pctSem)} das propostas sem responsável (meta: abaixo de 5%).`;
   const abaixo = equipe.filter((p) => { const me = metasDe(p); const r = realizado(resumo, p, ant); return me.aprovacao && r.taxa != null && r.taxa < me.aprovacao; });
   if (abaixo.length) out["follow-up"] = `Aprovação abaixo da meta em ${mesNome(ant)}: ${abaixo.map((p) => p.nome.split(" ")[0]).join(", ")}.`;
+  }
   const desde = somarMeses(m, -2);
-  for (const tr of TRILHAS.filter((x) => x.gatilho.startsWith("ocorrencia:"))) {
+  for (const tr of trilhas.filter((x) => x.gatilho.startsWith("ocorrencia:"))) {
     const tipo = tr.gatilho.split(":")[1];
     const n = dados.ocorrencias.filter((o) => o.tipo === tipo && o.mes >= desde).length;
     if (n) out[tr.id] = `${n} ocorrência(s) de “${tipo}” nos últimos 3 meses.`;
   }
   const det = [...(nps || []), ...dados.nps].filter((r) => Number(r.nota) <= 6).length;
-  if (det) out.atendimento = `${det} cliente(s) com nota de 0 a 6.`;
+  if (det) for (const tr of trilhas.filter((x) => x.gatilho === "nps")) out[tr.id] = out[tr.id] ? `${out[tr.id]} ${det} cliente(s) com nota de 0 a 6.` : `${det} cliente(s) com nota de 0 a 6.`;
   const perdidas = (lics || []).filter((l) => String(l.status).toUpperCase() === "PERDIDA").length;
-  if (perdidas) out.licitacoes = `${perdidas} licitação(ões) perdida(s).`;
+  if (perdidas && setor === "comercial") out.licitacoes = `${perdidas} licitação(ões) perdida(s).`;
   const semFb = equipe.filter((p) => !dados.feedbacks.some((f) => f.pessoaId === p.id && f.mes >= ant));
-  const rec = matrizReciclagem({ trilhas: TRILHAS, registros: dados.treinamentos, pessoas: equipe, hoje: hojeBR() });
+  const rec = matrizReciclagem({ trilhas, registros: dados.treinamentos, pessoas: equipe, hoje: hojeBR() });
   for (const t of rec.periodicas) {
     const venc = rec.pendencias.filter((x) => x.trilha.id === t.id && x.status !== "nunca");
     const nunca = rec.pendencias.filter((x) => x.trilha.id === t.id && x.status === "nunca");
     const partes = [venc.length && `reciclagem vencida ou vencendo: ${venc.map((x) => x.pessoa.nome.split(" ")[0]).join(", ")}`, nunca.length && `nunca fizeram: ${nunca.map((x) => x.pessoa.nome.split(" ")[0]).join(", ")}`].filter(Boolean);
     if (partes.length) { const txt = partes.join("; ") + "."; out[t.id] = out[t.id] ? `${out[t.id]} ${txt.charAt(0).toUpperCase()}${txt.slice(1)}` : txt.charAt(0).toUpperCase() + txt.slice(1); }
   }
-  if (semFb.length) out.gestora = `Sem conversa individual registrada desde ${mesNome(ant)}: ${semFb.map((p) => p.nome.split(" ")[0]).join(", ")}.`;
+  if (semFb.length && setor === "comercial") out.gestora = `Sem conversa individual registrada desde ${mesNome(ant)}: ${semFb.map((p) => p.nome.split(" ")[0]).join(", ")}.`;
   return out;
 }
 
@@ -70,7 +73,7 @@ export default function Treinamentos() {
   const [aba, setAba] = useState("apresentacoes");
   return (
     <>
-      <Abas valor={aba} aoMudar={setAba} abas={[["apresentacoes", "Apresentações de treinamento"], ["trilhas", "Trilhas do comercial"], ["reciclagem", "Plano e calendário"]]} />
+      <Abas valor={aba} aoMudar={setAba} abas={[["apresentacoes", "Apresentações de treinamento"], ["trilhas", "Trilhas de treinamento"], ["reciclagem", "Plano e calendário"]]} />
       {aba === "reciclagem" ? <Reciclagem irParaTrilha={() => setAba("trilhas")} /> : aba === "trilhas" ? <Trilhas /> : (
         <>
           <Cabecalho sobre="Treinamentos" titulo="Apresentações de treinamento" sub="Integração de novos colaboradores pronta e um modelo para criar treinamentos novos no estilo MinasLab." />
@@ -82,14 +85,17 @@ export default function Treinamentos() {
 }
 
 function Trilhas() {
-  const { resumo, equipeAtual: equipe, dados, remover } = useBase();
-  const nps = useCRM("nps", npsCRM);
-  const lic = useCRM("licitacoes", licitacoesCRM);
-  const sug = motivos({ resumo, equipe, dados, nps: nps.dados?.respostas, lics: lic.dados?.licitacoes });
-  const ordem = [...TRILHAS].sort((a, b) => (sug[b.id] ? 1 : 0) - (sug[a.id] ? 1 : 0));
-  const [sel, setSel] = useState(ordem[0].id);
+  const { resumo, equipeAtual: equipe, dados, remover, setor, nomeSetor } = useBase();
+  const trilhas = trilhasDoSetor(setor);
+  const com = setor === "comercial";
+  const nps = useCRM(com ? "nps" : "nps-nenhum", com ? npsCRM : async () => null);
+  const lic = useCRM(com ? "licitacoes" : "licitacoes-nenhum", com ? licitacoesCRM : async () => null);
+  const sug = motivos({ resumo, equipe, dados, nps: nps.dados?.respostas, lics: lic.dados?.licitacoes, trilhas, setor });
+  const ordem = [...trilhas].sort((a, b) => (sug[b.id] ? 1 : 0) - (sug[a.id] ? 1 : 0));
+  const [sel, setSel] = useState(ordem[0]?.id);
   const [modo, setModo] = useState("guia");
-  const t = trilhaPorId(sel);
+  const t = trilhaPorId(sel) || ordem[0];
+  if (!t) return <Cabecalho sobre="Treinamentos" titulo={`Ainda não há trilhas do ${nomeSetor}`} />;
   const aplicacoes = dados.treinamentos.filter((x) => x.trilhaId && x.tipo !== "agenda" && x.trilhaId === sel).sort((a, b) => String(b.data).localeCompare(String(a.data)));
 
   return (
@@ -215,12 +221,13 @@ function ResumoPlano({ trilhaId }) {
 /** Plano de cada trilha (cargos, reciclagem, novos), calendário e situação de cada pessoa. */
 const ROT = { "em-dia": ["ok", "Em dia"], vence: ["alerta", "Vence em breve"], vencido: ["ruim", "Vencido"], nunca: ["neutro", "Nunca fez"], pendente: ["alerta", "Novo: fazer"], "nao-se-aplica": ["neutro", "Não se aplica"] };
 function Reciclagem({ irParaTrilha }) {
-  const { equipeAtual: equipe, dados, gravar } = useBase();
+  const { equipeAtual: equipe, dados, gravar, setor } = useBase();
+  const trilhas = trilhasDoSetor(setor);
   const [msg, setMsg] = useState("");
   const [abrirCargos, setAbrirCargos] = useState(null);
   const hoje = hojeBR();
   const plano = planoEmVigor(dados.treinamentos);
-  const m = matrizReciclagem({ trilhas: TRILHAS, registros: dados.treinamentos, pessoas: equipe, hoje });
+  const m = matrizReciclagem({ trilhas, registros: dados.treinamentos, pessoas: equipe, hoje });
   const funcoes = dados.funcoes || [];
   const salvar = async (parte) => {
     setMsg("");
@@ -252,7 +259,7 @@ function Reciclagem({ irParaTrilha }) {
         <div className="card-cab"><h2>Plano de cada treinamento</h2>{msg && <span className="peq suave">{msg}</span>}</div>
         <div className="tabela-caixa"><table>
           <thead><tr><th>Treinamento</th><th>Cargos que precisam fazer</th><th>Reciclagem</th><th>Quem acabou de entrar</th></tr></thead>
-          <tbody>{TRILHAS.map((t) => {
+          <tbody>{trilhas.map((t) => {
             const cs = plano.cargos[t.id] || [];
             return (
               <tr key={t.id}>
@@ -307,9 +314,10 @@ function Reciclagem({ irParaTrilha }) {
 
 /** Calendário de aplicação: datas agendadas por treinamento. */
 function Calendario() {
-  const { dados, gravar, remover } = useBase();
+  const { dados, gravar, remover, setor } = useBase();
   const hoje = hojeBR();
-  const vazio = { trilhaId: TRILHAS[0].id, data: "", hora: "", local: "", responsavel: "", obs: "" };
+  const trilhas = trilhasDoSetor(setor);
+  const vazio = { trilhaId: trilhas[0]?.id || "", data: "", hora: "", local: "", responsavel: "", obs: "" };
   const [f, setF] = useState(vazio);
   const [msg, setMsg] = useState("");
   const [passadas, setPassadas] = useState(false);
@@ -330,7 +338,7 @@ function Calendario() {
     <Card semPad>
       <div className="card-cab"><h2>Calendário de aplicação</h2><label className="peq suave" style={{ display: "flex", gap: 6, alignItems: "center" }}><input type="checkbox" checked={passadas} onChange={(e) => setPassadas(e.target.checked)} />Mostrar datas passadas</label></div>
       <form onSubmit={agendar} style={{ padding: "0 20px 12px", display: "flex", flexWrap: "wrap", gap: 10, alignItems: "flex-end" }}>
-        <label className="campo" style={{ flex: "2 1 220px" }}><span>Treinamento</span><select className="entrada" value={f.trilhaId} onChange={(e) => setF({ ...f, trilhaId: e.target.value })}>{TRILHAS.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}</select></label>
+        <label className="campo" style={{ flex: "2 1 220px" }}><span>Treinamento</span><select className="entrada" value={f.trilhaId} onChange={(e) => setF({ ...f, trilhaId: e.target.value })}>{trilhas.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}</select></label>
         {campo("data", "Data", { type: "date", flex: "1 1 150px" })}
         {campo("hora", "Hora", { type: "time", flex: "0 1 110px" })}
         {campo("local", "Local")}

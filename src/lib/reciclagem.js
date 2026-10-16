@@ -16,6 +16,8 @@ export const OPCOES_PRAZO_NOVO = [[0, "Sem prazo"], [15, "Até 15 dias"], [30, "
 export const PERIODO_SUGERIDO = {
   "analise-critica": 12, "crm-sem-furos": 12, "proposta-sem-erro": 12, "os-correta": 12,
   atendimento: 12, tecnico: 24, licitacoes: 0, "follow-up": 0, spin: 0, gestora: 0,
+  "pg012-satisfacao": 12, "pg013-reclamacoes": 12, "pg010-recebimento": 12, "pg011-armazenamento": 12,
+  "am-amostragem": 12, "am-coletas-especiais": 12, "am-purga": 12,
 };
 
 export const AVISO_DIAS = 30;

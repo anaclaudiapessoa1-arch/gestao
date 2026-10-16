@@ -9,6 +9,7 @@
 // {pesoEquipe}, {pesoLideranca}.
 
 import { novoId } from "./format.js";
+import { MODELOS_PG } from "./treinamentosPG.js";
 
 export const LAYOUTS = {
   capa: { nome: "Capa", campos: ["titulo", "subtitulo", "texto", "destaque"], ajuda: { destaque: "Só no estilo colorido: palavras separadas por · viram pílulas coloridas." } },
@@ -184,6 +185,7 @@ export const MODELOS = [
   { id: "laboratorio", categoria: "reuniao", setor: "laboratorio", nome: "Reunião do Laboratório", desc: "Só a equipe do laboratório: amostras por setor, prazos e OS atrasadas, não conformidades, produtividade e metas.", titulo: "Reunião do Laboratório · {mes}", slides: LABORATORIO },
   { id: "integracao", categoria: "treinamento", nome: "Integração de novos colaboradores", desc: "Módulo 1: ISO/IEC 17025, escopo CRL 1943, matrizes e recepção de amostras. Módulo 2: Declaração de Ética. Com teste no final.", titulo: "Integração e Capacitação Técnica", slides: INTEGRACAO },
   { id: "analise-critica", categoria: "treinamento", setor: "comercial", tema: "colorido", nome: "Análise crítica de propostas (ISO 17025)", desc: "PG 006 e requisito 7.1 da ISO/IEC 17025: checklist, fluxo da proposta, aceite do cliente e casos reais em quiz. Estilo colorido.", titulo: "Análise Crítica de Propostas · PG 006", slides: ANALISE_CRITICA },
+  ...MODELOS_PG,
   { id: "treinamento", categoria: "treinamento", nome: "Novo treinamento", desc: "Estrutura pronta: o número que queremos mudar, objetivo, conteúdo, regra de ouro, prática e teste.", titulo: "Novo treinamento", slides: TREINAMENTO },
   { id: "livre", categoria: "ambos", nome: "Em branco", desc: "Capa, um slide e encerramento. Monte do seu jeito.", titulo: "Nova apresentação", slides: LIVRE },
 ];

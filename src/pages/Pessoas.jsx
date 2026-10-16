@@ -6,7 +6,7 @@ import { navegar } from "../lib/rota.js";
 import { pct, mesLongo, mesNome, mesCurto, dataCurta, hojeBR, brl } from "../lib/format.js";
 import { realizado, metasDe, mediaAnterior, pontos, roteiroFeedback, serie } from "../lib/calculos.js";
 import { treinamentosDaPessoa } from "../lib/treinamentosPessoa.js";
-import { trilhaPorId, TRILHAS } from "../lib/trilhas.js";
+import { trilhaPorId, trilhasDoSetor } from "../lib/trilhas.js";
 import { matrizReciclagem } from "../lib/reciclagem.js";
 import { Desenvolvimento } from "../components/Desenvolvimento.jsx";
 import { Orientacao } from "../components/Orientacao.jsx";
@@ -37,7 +37,7 @@ export default function Pessoas({ param }) {
   const fbs = membro ? dados.feedbacks.filter((f) => f.pessoaId === membro.id).sort((a, b) => String(b.data).localeCompare(String(a.data))) : [];
   const pagFb = usePaginacao(fbs, 5, membro?.id);
   const treinos = treinamentosDaPessoa(dados.treinamentos, membro);
-  const recic = matrizReciclagem({ trilhas: TRILHAS, registros: dados.treinamentos, pessoas: membro ? [membro] : [], hoje: hojeBR() });
+  const recic = matrizReciclagem({ trilhas: trilhasDoSetor(setor), registros: dados.treinamentos, pessoas: membro ? [membro] : [], hoje: hojeBR() });
 
   if (!membro) {
     return (

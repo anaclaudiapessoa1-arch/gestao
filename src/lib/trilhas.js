@@ -2,7 +2,9 @@
 // 20 a 40 minutos, pontos para os slides, exercício com casos reais da casa e
 // teste rápido. `gatilho` diz qual número do sistema sugere a trilha.
 
-export const TRILHAS = [
+import { TRILHAS_PG } from "./treinamentosPG.js";
+
+const TRILHAS_COMERCIAL = [
   {
     id: "crm-sem-furos",
     nome: "CRM sem furos",
@@ -261,5 +263,9 @@ export const TRILHAS = [
     ],
   },
 ];
+
+/** Todas as trilhas; cada uma pertence a um setor (Comercial ou Laboratório). */
+export const TRILHAS = [...TRILHAS_COMERCIAL.map((t) => ({ setor: "comercial", ...t })), ...TRILHAS_PG];
+export const trilhasDoSetor = (setor) => TRILHAS.filter((t) => t.setor === setor);
 
 export const trilhaPorId = (id) => TRILHAS.find((t) => t.id === id);
