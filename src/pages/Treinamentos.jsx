@@ -10,7 +10,10 @@ import { Apresentador } from "../components/Deck.jsx";
 import { slidesDoModelo, modeloPorId } from "../lib/modelosApresentacao.js";
 import { npsCRM, licitacoesCRM } from "../services/crm.js";
 import { TRILHAS, trilhaPorId } from "../lib/trilhas.js";
-import { hojeBR, dataCurta, mesAtual, somarMeses, mesDeData, mesNome, pct } from "../lib/format.js";
+import { pessoasParaTreinamento } from "../lib/treinamentosPessoa.js";
+import { hojeBR, dataCurta, mesAtual, somarMeses, mesDeData, mesNome, pct, nomeProprio } from "../lib/format.js";
+
+const norm = (t) => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 import { totaisMes, realizado, metasDe } from "../lib/calculos.js";
 
 /** Por que cada trilha está sugerida agora (ou null). */
@@ -71,7 +74,7 @@ export default function Treinamentos() {
 }
 
 function Trilhas() {
-  const { resumo, equipeAtual: equipe, dados } = useBase();
+  const { resumo, equipeAtual: equipe, dados, remover } = useBase();
   const nps = useCRM("nps", npsCRM);
   const lic = useCRM("licitacoes", licitacoesCRM);
   const sug = motivos({ resumo, equipe, dados, nps: nps.dados?.respostas, lics: lic.dados?.licitacoes });
@@ -146,16 +149,17 @@ function Trilhas() {
             <div className="card-cab"><h3>Aplicações</h3><span className="suave peq">{aplicacoes.length}</span></div>
             {aplicacoes.length === 0 ? <div className="vazio" style={{ padding: "0 20px 20px" }}>Ainda não aplicado.</div> : (
               <div className="tabela-caixa"><table>
-                <thead><tr><th>Data</th><th>Participantes</th><th>Nota média</th><th>Efeito no indicador</th></tr></thead>
+                <thead><tr><th>Data</th><th>Participantes</th><th>Nota média</th><th>Efeito no indicador</th><th /></tr></thead>
                 <tbody>{aplicacoes.map((a) => {
                   const ef = eficacia(t, a, { resumo, dados });
                   const notas = (a.participantes || []).map((p) => p.nota).filter((n) => n != null && n !== "");
                   return (
                     <tr key={a.id}>
                       <td className="tnum">{dataCurta(a.data)}</td>
-                      <td className="peq">{(a.participantes || []).filter((p) => p.presente).map((p) => equipe.find((m) => m.id === p.pessoaId)?.nome.split(" ")[0] || "—").join(", ")}</td>
+                      <td className="peq">{(a.participantes || []).filter((p) => p.presente).map((p) => nomeProprio(p.nome || equipe.find((m) => m.id === p.pessoaId)?.nome || "—").split(" ")[0]).join(", ")}</td>
                       <td className="tnum">{notas.length ? `${Math.round(notas.reduce((s, n) => s + Number(n), 0) / notas.length)}%` : "—"}</td>
                       <td className="peq">{ef.texto || `${ef.rotulo}: ${ef.antes} → ${ef.depois}`}</td>
+                      <td><button type="button" className="btn perigo mini" onClick={() => window.confirm("Apagar este registro de aplicação? Ele sai também do perfil dos participantes.") && remover("treinamentos", a.id)}>Apagar</button></td>
                     </tr>
                   );
                 })}</tbody>
@@ -195,34 +199,51 @@ function Pergunta({ q, n }) {
 }
 
 function Registro({ trilha }) {
-  const { equipeAtual: equipe, gravar } = useBase();
+  const { equipeAtual: equipe, elenco, gravar } = useBase();
+  const pessoas = pessoasParaTreinamento(equipe, elenco);
   const [data, setData] = useState(hojeBR());
-  const [part, setPart] = useState(() => Object.fromEntries(equipe.map((p) => [p.id, { presente: true, nota: "" }])));
+  const [sel, setSel] = useState({}); // id -> nota ("" = sem nota)
+  const [busca, setBusca] = useState("");
   const [obs, setObs] = useState("");
   const [msg, setMsg] = useState("");
+  const marcados = pessoas.filter((p) => p.id in sel);
+  const visiveis = pessoas.filter((p) => !busca || norm(p.nome).includes(norm(busca)));
+  const alternar = (id) => setSel((x) => { const n = { ...x }; if (id in n) delete n[id]; else n[id] = ""; return n; });
   const salvar = async () => {
+    if (!marcados.length) { setMsg("Marque quem participou."); return; }
     try {
-      await gravar("treinamentos", { trilhaId: trilha.id, data, obs, participantes: Object.entries(part).map(([pessoaId, v]) => ({ pessoaId, presente: v.presente, nota: v.nota === "" ? null : Number(v.nota) })) });
-      setMsg("Aplicação registrada."); setObs("");
+      await gravar("treinamentos", {
+        trilhaId: trilha.id, titulo: trilha.nome, data, obs,
+        participantes: marcados.map((p) => ({ pessoaId: p.id, rhPessoaId: p.rhPessoaId || "", nome: p.nome, presente: true, nota: sel[p.id] === "" ? null : Number(sel[p.id]) })),
+      });
+      setMsg(`Aplicação registrada para ${marcados.length} pessoa(s). Já aparece no perfil de cada uma.`); setObs(""); setSel({});
     } catch (e) { setMsg(e.message); }
   };
   return (
     <Card>
       <h3>Registrar aplicação</h3>
       <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
-        <div className="campo" style={{ maxWidth: 180 }}><label htmlFor="t-data">Data</label><input id="t-data" type="date" className="entrada" value={data} onChange={(e) => setData(e.target.value)} /></div>
-        <table><thead><tr><th>Pessoa</th><th>Presente</th><th>Nota do teste (%)</th></tr></thead><tbody>
-          {equipe.map((p) => (
-            <tr key={p.id}>
-              <td>{p.nome}</td>
-              <td><input type="checkbox" aria-label={`${p.nome} presente`} checked={part[p.id]?.presente ?? false} onChange={(e) => setPart({ ...part, [p.id]: { ...part[p.id], presente: e.target.checked } })} style={{ width: 18, height: 18 }} /></td>
-              <td><input className="entrada num" type="number" min="0" max="100" aria-label={`Nota de ${p.nome}`} value={part[p.id]?.nota ?? ""} onChange={(e) => setPart({ ...part, [p.id]: { ...part[p.id], nota: e.target.value } })} /></td>
-            </tr>
-          ))}
-        </tbody></table>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <div className="campo" style={{ maxWidth: 180 }}><label htmlFor="t-data">Data</label><input id="t-data" type="date" className="entrada" value={data} onChange={(e) => setData(e.target.value)} /></div>
+          <div className="campo" style={{ flex: "1 1 200px" }}><label htmlFor="t-busca">Buscar colaborador</label><input id="t-busca" className="entrada" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Nome" /></div>
+          <button type="button" className="btn claro mini" onClick={() => setSel((x) => ({ ...Object.fromEntries(pessoas.filter((p) => p.daEquipe).map((p) => [p.id, ""])), ...x }))}>Marcar a equipe do setor</button>
+          <button type="button" className="btn claro mini" onClick={() => setSel({})}>Limpar</button>
+        </div>
+        <div className="suave peq">{marcados.length} selecionado(s) de {pessoas.length}. Aparecem todos os colaboradores ativos da MinasLab; a equipe do setor vem primeiro.</div>
+        <div className="tabela-caixa" style={{ maxHeight: 420, overflow: "auto" }}>
+          <table><thead><tr><th style={{ width: 40 }} /><th>Colaborador</th><th>Nota do teste (%)</th></tr></thead><tbody>
+            {visiveis.map((p) => (
+              <tr key={p.id} style={p.id in sel ? { background: "var(--marca-50)" } : undefined}>
+                <td><input type="checkbox" aria-label={`${p.nome} participou`} checked={p.id in sel} onChange={() => alternar(p.id)} style={{ width: 18, height: 18 }} /></td>
+                <td onClick={() => alternar(p.id)} style={{ cursor: "pointer" }}>{nomeProprio(p.nome)}{p.daEquipe && <span className="suave peq"> · equipe do setor</span>}</td>
+                <td>{p.id in sel && <input className="entrada num" type="number" min="0" max="100" style={{ width: 100 }} aria-label={`Nota de ${p.nome}`} value={sel[p.id]} onChange={(e) => setSel({ ...sel, [p.id]: e.target.value })} />}</td>
+              </tr>
+            ))}
+          </tbody></table>
+        </div>
         <div className="campo"><label htmlFor="t-obs">Observações</label><textarea id="t-obs" className="entrada" rows={2} value={obs} onChange={(e) => setObs(e.target.value)} /></div>
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}><button type="button" className="btn" onClick={salvar}>Salvar</button>{msg && <span className="peq">{msg}</span>}</div>
-        <div className="suave peq">Fica como registro de treinamento por pessoa (evidência de competência para a ISO/IEC 17025).</div>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}><button type="button" className="btn" onClick={salvar}>Salvar ({marcados.length})</button>{msg && <span className="peq">{msg}</span>}</div>
+        <div className="suave peq">Fica como registro de treinamento por pessoa, com data e nota (evidência de competência para a ISO/IEC 17025), e aparece em Pessoas e feedback › Treinamentos.</div>
       </div>
     </Card>
   );

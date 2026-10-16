@@ -5,6 +5,8 @@ import { SeletorMes } from "../components/Layout.jsx";
 import { navegar } from "../lib/rota.js";
 import { pct, mesLongo, mesNome, mesCurto, dataCurta, hojeBR, brl } from "../lib/format.js";
 import { realizado, metasDe, mediaAnterior, pontos, roteiroFeedback, serie } from "../lib/calculos.js";
+import { treinamentosDaPessoa } from "../lib/treinamentosPessoa.js";
+import { trilhaPorId } from "../lib/trilhas.js";
 import { Desenvolvimento } from "../components/Desenvolvimento.jsx";
 import { Orientacao } from "../components/Orientacao.jsx";
 import { MetasFuncao } from "./Funcoes.jsx";
@@ -33,6 +35,7 @@ export default function Pessoas({ param }) {
   const [aba, setAba] = useState("resultado");
   const fbs = membro ? dados.feedbacks.filter((f) => f.pessoaId === membro.id).sort((a, b) => String(b.data).localeCompare(String(a.data))) : [];
   const pagFb = usePaginacao(fbs, 5, membro?.id);
+  const treinos = treinamentosDaPessoa(dados.treinamentos, membro);
 
   if (!membro) {
     return (
@@ -86,7 +89,7 @@ export default function Pessoas({ param }) {
         </div>
       </Card>
 
-      <Abas valor={aba} aoMudar={setAba} abas={[["resultado", "Resultado do mês", lista.length || ""], ["feedback", "Feedback 1:1"], ["historico", "Histórico de conversas", fbs.length], ["desenvolvimento", "Desenvolvimento e PDI"]]} />
+      <Abas valor={aba} aoMudar={setAba} abas={[["resultado", "Resultado do mês", lista.length || ""], ["feedback", "Feedback 1:1"], ["historico", "Histórico de conversas", fbs.length], ["treinamentos", "Treinamentos", treinos.length || ""], ["desenvolvimento", "Desenvolvimento e PDI"]]} />
 
       {aba === "resultado" && <div className="grade grade-2">
         <Card>
@@ -155,6 +158,22 @@ export default function Pessoas({ param }) {
             </div>
           ))}
           <Paginacao pag={pagFb} rotulo="conversas" />
+        </Card>}
+      {aba === "treinamentos" && <Card semPad>
+          <div className="card-cab"><h3>Treinamentos de {membro.nome}</h3><span className="suave peq">{treinos.length} registro(s)</span></div>
+          {treinos.length === 0 ? <div className="vazio peq" style={{ padding: "0 20px 20px" }}>Nenhum treinamento registrado ainda. Registre em Treinamentos › Trilhas › Registrar aplicação.</div> : (
+            <div className="tabela-caixa"><table>
+              <thead><tr><th>Data</th><th>Treinamento</th><th>Nota do teste</th><th>Observações</th></tr></thead>
+              <tbody>{treinos.map((t) => (
+                <tr key={t.id}>
+                  <td className="tnum">{dataCurta(t.data)}</td>
+                  <td>{trilhaPorId(t.trilhaId)?.nome || t.titulo || "Treinamento"}</td>
+                  <td className="tnum">{t.nota == null ? "—" : `${t.nota}%`}</td>
+                  <td className="peq suave">{t.obs}</td>
+                </tr>
+              ))}</tbody>
+            </table></div>
+          )}
         </Card>}
       {aba === "desenvolvimento" && <Desenvolvimento membro={membro} />}
     </>
