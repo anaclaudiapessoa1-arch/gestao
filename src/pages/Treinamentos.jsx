@@ -11,7 +11,7 @@ import { slidesDoModelo, modeloPorId } from "../lib/modelosApresentacao.js";
 import { npsCRM, licitacoesCRM } from "../services/crm.js";
 import { TRILHAS, trilhaPorId } from "../lib/trilhas.js";
 import { pessoasParaTreinamento } from "../lib/treinamentosPessoa.js";
-import { matrizReciclagem, OPCOES_PERIODO, ID_CONFIG, periodosEmVigor } from "../lib/reciclagem.js";
+import { matrizReciclagem, OPCOES_PERIODO, OPCOES_PRAZO_NOVO, ID_CONFIG, planoEmVigor, agenda } from "../lib/reciclagem.js";
 import { hojeBR, dataCurta, mesAtual, somarMeses, mesDeData, mesNome, pct, nomeProprio } from "../lib/format.js";
 
 const norm = (t) => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -70,7 +70,7 @@ export default function Treinamentos() {
   const [aba, setAba] = useState("apresentacoes");
   return (
     <>
-      <Abas valor={aba} aoMudar={setAba} abas={[["apresentacoes", "Apresentações de treinamento"], ["trilhas", "Trilhas do comercial"], ["reciclagem", "Periodicidade e reciclagem"]]} />
+      <Abas valor={aba} aoMudar={setAba} abas={[["apresentacoes", "Apresentações de treinamento"], ["trilhas", "Trilhas do comercial"], ["reciclagem", "Plano e calendário"]]} />
       {aba === "reciclagem" ? <Reciclagem irParaTrilha={() => setAba("trilhas")} /> : aba === "trilhas" ? <Trilhas /> : (
         <>
           <Cabecalho sobre="Treinamentos" titulo="Apresentações de treinamento" sub="Integração de novos colaboradores pronta e um modelo para criar treinamentos novos no estilo MinasLab." />
@@ -90,7 +90,7 @@ function Trilhas() {
   const [sel, setSel] = useState(ordem[0].id);
   const [modo, setModo] = useState("guia");
   const t = trilhaPorId(sel);
-  const aplicacoes = dados.treinamentos.filter((x) => x.trilhaId && x.trilhaId === sel).sort((a, b) => String(b.data).localeCompare(String(a.data)));
+  const aplicacoes = dados.treinamentos.filter((x) => x.trilhaId && x.tipo !== "agenda" && x.trilhaId === sel).sort((a, b) => String(b.data).localeCompare(String(a.data)));
 
   return (
     <>
@@ -99,7 +99,7 @@ function Trilhas() {
       <div style={{ display: "flex", flexWrap: "wrap", gap: 20, alignItems: "flex-start" }}>
         <div style={{ flex: "1 1 280px", display: "flex", flexDirection: "column", gap: 8 }}>
           {ordem.map((x) => {
-            const n = dados.treinamentos.filter((a) => a.trilhaId === x.id).length;
+            const n = dados.treinamentos.filter((a) => a.tipo !== "agenda" && a.trilhaId === x.id).length;
             return (
               <button key={x.id} type="button" onClick={() => { setSel(x.id); setModo("guia"); }} className="card" style={{ textAlign: "left", padding: 14, cursor: "pointer", border: x.id === sel ? "2px solid var(--marca)" : undefined, background: x.id === sel ? "var(--marca-50)" : undefined, font: "inherit", color: "inherit" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}><b style={{ fontWeight: 600 }}>{x.nome}</b>{sug[x.id] ? <Chip tom="marca">Sugerido</Chip> : n ? <Chip tom="ok">Aplicado {n}×</Chip> : null}</div>
@@ -124,6 +124,7 @@ function Trilhas() {
             </div>
             {sug[t.id] && <div className="aviso marca" style={{ marginTop: 12 }}><b>Por que agora:</b> {sug[t.id]}</div>}
             <div className="peq suave" style={{ marginTop: 10 }}>Indicador que deve melhorar: <b>{t.indicador}</b> · Para: {t.publico} · {t.minutos} min</div>
+            <ResumoPlano trilhaId={t.id} />
           </Card>
 
           {modo === "guia" && (
@@ -193,38 +194,99 @@ function SlidesDoModelo({ modelo }) {
   );
 }
 
-/** Periodicidade de cada trilha e situação de reciclagem de cada pessoa. */
-const ROT = { "em-dia": ["ok", "Em dia"], vence: ["alerta", "Vence em breve"], vencido: ["ruim", "Vencido"], nunca: ["neutro", "Nunca fez"] };
+/** Cargos, reciclagem, prazo para novos e próxima data de uma trilha (no guia). */
+function ResumoPlano({ trilhaId }) {
+  const { dados } = useBase();
+  const plano = planoEmVigor(dados.treinamentos);
+  const cargos = (plano.cargos[trilhaId] || []).map((id) => dados.funcoes.find((f) => f.id === id)?.nome).filter(Boolean);
+  const per = plano.periodos[trilhaId] || 0;
+  const novo = plano.prazoNovo[trilhaId] || 0;
+  const prox = agenda(dados.treinamentos, { desde: hojeBR() }).find((a) => a.trilhaId === trilhaId);
+  return (
+    <div className="peq" style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: 6 }}>
+      <Chip tom="neutro">Cargos: {cargos.length ? cargos.join(", ") : "toda a equipe"}</Chip>
+      <Chip tom="neutro">{per ? `Reciclagem: ${OPCOES_PERIODO.find(([v]) => v === per)?.[1].toLowerCase() || `a cada ${per} meses`}` : "Sem reciclagem"}</Chip>
+      {novo > 0 && <Chip tom="neutro">Novos: até {novo} dias após a entrada</Chip>}
+      {prox && <Chip tom="marca">Próxima aplicação: {dataCurta(prox.data)}{prox.hora ? ` às ${prox.hora}` : ""}</Chip>}
+    </div>
+  );
+}
+
+/** Plano de cada trilha (cargos, reciclagem, novos), calendário e situação de cada pessoa. */
+const ROT = { "em-dia": ["ok", "Em dia"], vence: ["alerta", "Vence em breve"], vencido: ["ruim", "Vencido"], nunca: ["neutro", "Nunca fez"], pendente: ["alerta", "Novo: fazer"], "nao-se-aplica": ["neutro", "Não se aplica"] };
 function Reciclagem({ irParaTrilha }) {
   const { equipeAtual: equipe, dados, gravar } = useBase();
   const [msg, setMsg] = useState("");
+  const [abrirCargos, setAbrirCargos] = useState(null);
   const hoje = hojeBR();
-  const per = periodosEmVigor(dados.treinamentos);
+  const plano = planoEmVigor(dados.treinamentos);
   const m = matrizReciclagem({ trilhas: TRILHAS, registros: dados.treinamentos, pessoas: equipe, hoje });
-  const mudar = async (id, meses) => {
+  const funcoes = dados.funcoes || [];
+  const salvar = async (parte) => {
     setMsg("");
-    try { await gravar("treinamentos", { id: ID_CONFIG, tipo: "periodicidade", periodos: { ...per, [id]: Number(meses) } }); setMsg("Periodicidade salva."); }
+    try { await gravar("treinamentos", { id: ID_CONFIG, tipo: "periodicidade", periodos: plano.periodos, cargos: plano.cargos, prazoNovo: plano.prazoNovo, ...parte }); setMsg("Plano salvo."); }
     catch (e) { setMsg(e.message); }
+  };
+  const mudarCargo = (tid, fid) => {
+    const atual = plano.cargos[tid] || [];
+    salvar({ cargos: { ...plano.cargos, [tid]: atual.includes(fid) ? atual.filter((x) => x !== fid) : [...atual, fid] } });
   };
   const celula = (c) => {
     if (!c) return null;
     const [tom, rot] = ROT[c.status] || ["neutro", ""];
-    return <div><Chip tom={tom}>{rot}</Chip>{c.vence && <div className="suave peq" style={{ marginTop: 2 }}>{c.status === "vencido" ? "venceu" : "vence"} {dataCurta(c.vence)}</div>}</div>;
+    if (c.status === "nao-se-aplica") return <span className="suave peq">—</span>;
+    return <div><Chip tom={tom}>{rot}</Chip>{c.vence && <div className="suave peq" style={{ marginTop: 2 }}>{c.status === "vencido" ? "venceu" : "até"} {dataCurta(c.vence)}</div>}</div>;
   };
+  const semFuncao = equipe.filter((p) => !p.funcaoId).length;
   return (
     <>
-      <Cabecalho sobre="Treinamentos" titulo="Periodicidade e reciclagem" sub="Defina de quanto em quanto tempo cada treinamento deve ser refeito. O sistema conta a partir da última aplicação registrada de cada pessoa e avisa 30 dias antes de vencer." />
+      <Cabecalho sobre="Treinamentos" titulo="Plano e calendário de treinamentos" sub="Para cada treinamento: quais cargos precisam fazer, de quanto em quanto tempo reciclar, o prazo para quem acabou de entrar e as datas de aplicação. O sistema avisa 30 dias antes de vencer." />
       <div className="grade grade-kpi">
         <Card><div className="suave peq">Reciclagens vencidas</div><div style={{ fontSize: 28, fontWeight: 700, color: m.totais.vencido ? "var(--ruim)" : undefined }}>{m.totais.vencido}</div></Card>
         <Card><div className="suave peq">Vencem nos próximos 30 dias</div><div style={{ fontSize: 28, fontWeight: 700, color: m.totais.vence ? "var(--alerta)" : undefined }}>{m.totais.vence}</div></Card>
-        <Card><div className="suave peq">Treinamentos obrigatórios nunca feitos</div><div style={{ fontSize: 28, fontWeight: 700 }}>{m.totais.nunca}</div></Card>
+        <Card><div className="suave peq">Obrigatórios ainda não feitos</div><div style={{ fontSize: 28, fontWeight: 700 }}>{m.totais.nunca}</div></Card>
+        <Card><div className="suave peq">Aplicações agendadas</div><div style={{ fontSize: 28, fontWeight: 700 }}>{agenda(dados.treinamentos, { desde: hoje }).length}</div></Card>
       </div>
 
       <Card semPad>
-        <div className="card-cab"><h2>Situação da equipe</h2><span className="suave peq">{equipe.length} pessoa(s) · {m.periodicas.length} treinamento(s) com reciclagem</span></div>
-        {m.periodicas.length === 0 || equipe.length === 0 ? <div className="vazio" style={{ padding: "0 20px 20px" }}>{equipe.length ? "Defina a periodicidade de algum treinamento abaixo." : "Cadastre a equipe do setor em Equipe e metas."}</div> : (
+        <div className="card-cab"><h2>Plano de cada treinamento</h2>{msg && <span className="peq suave">{msg}</span>}</div>
+        <div className="tabela-caixa"><table>
+          <thead><tr><th>Treinamento</th><th>Cargos que precisam fazer</th><th>Reciclagem</th><th>Quem acabou de entrar</th></tr></thead>
+          <tbody>{TRILHAS.map((t) => {
+            const cs = plano.cargos[t.id] || [];
+            return (
+              <tr key={t.id}>
+                <td>{t.nome}<div className="peq suave">{t.publico}</div></td>
+                <td style={{ minWidth: 220 }}>
+                  <div className="peq">{cs.length ? cs.map((id) => funcoes.find((f) => f.id === id)?.nome || "função apagada").join(", ") : <span className="suave">Toda a equipe do setor</span>}</div>
+                  <button type="button" className="btn claro mini" style={{ marginTop: 4 }} onClick={() => setAbrirCargos(abrirCargos === t.id ? null : t.id)} aria-expanded={abrirCargos === t.id}>{abrirCargos === t.id ? "Fechar" : "Escolher cargos"}</button>
+                  {abrirCargos === t.id && (
+                    <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 4 }}>
+                      {funcoes.length === 0 && <span className="suave peq">Cadastre as funções em Funções e cargos.</span>}
+                      {funcoes.map((f) => <label key={f.id} className="peq" style={{ display: "flex", gap: 6, alignItems: "center" }}><input type="checkbox" checked={cs.includes(f.id)} onChange={() => mudarCargo(t.id, f.id)} />{f.nome}</label>)}
+                    </div>
+                  )}
+                </td>
+                <td><select className="entrada" style={{ maxWidth: 220 }} aria-label={`Reciclagem de ${t.nome}`} value={plano.periodos[t.id] ?? 0} onChange={(e) => salvar({ periodos: { ...plano.periodos, [t.id]: Number(e.target.value) } })}>
+                  {OPCOES_PERIODO.map(([v, r]) => <option key={v} value={v}>{r}</option>)}
+                </select></td>
+                <td><select className="entrada" style={{ maxWidth: 180 }} aria-label={`Prazo para novos em ${t.nome}`} value={plano.prazoNovo[t.id] ?? 0} onChange={(e) => salvar({ prazoNovo: { ...plano.prazoNovo, [t.id]: Number(e.target.value) } })}>
+                  {OPCOES_PRAZO_NOVO.map(([v, r]) => <option key={v} value={v}>{r}</option>)}
+                </select></td>
+              </tr>
+            );
+          })}</tbody>
+        </table></div>
+        <div className="suave peq" style={{ padding: "0 20px 16px" }}>Sem cargo marcado, o treinamento vale para toda a equipe do setor. O cargo de cada pessoa vem de Equipe e metas{semFuncao ? ` (${semFuncao} pessoa(s) ainda sem função)` : ""}. O prazo para quem acabou de entrar conta a partir da data de entrada. A ISO/IEC 17025 (6.2) pede definir e monitorar a competência por função: este plano e os registros de aplicação são a evidência.</div>
+      </Card>
+
+      <Calendario />
+
+      <Card semPad>
+        <div className="card-cab"><h2>Situação da equipe</h2><span className="suave peq">{equipe.length} pessoa(s) · {m.periodicas.length} treinamento(s) no plano</span></div>
+        {m.periodicas.length === 0 || equipe.length === 0 ? <div className="vazio" style={{ padding: "0 20px 20px" }}>{equipe.length ? "Defina o plano de algum treinamento acima." : "Cadastre a equipe do setor em Equipe e metas."}</div> : (
           <div className="tabela-caixa"><table>
-            <thead><tr><th>Pessoa</th>{m.periodicas.map((t) => <th key={t.id} style={{ minWidth: 130 }}>{t.nome}<div className="suave peq" style={{ textTransform: "none", fontWeight: 400 }}>{OPCOES_PERIODO.find(([v]) => v === per[t.id])?.[1] || `a cada ${per[t.id]} meses`}</div></th>)}</tr></thead>
+            <thead><tr><th>Pessoa</th>{m.periodicas.map((t) => <th key={t.id} style={{ minWidth: 130 }}>{t.nome}</th>)}</tr></thead>
             <tbody>{m.linhas.map((l) => <tr key={l.pessoa.id}><td>{l.pessoa.nome}</td>{m.periodicas.map((t) => <td key={t.id}>{celula(l.celulas[t.id])}</td>)}</tr>)}</tbody>
           </table></div>
         )}
@@ -234,29 +296,69 @@ function Reciclagem({ irParaTrilha }) {
         <Card semPad>
           <div className="card-cab"><h2>O que aplicar primeiro</h2><button type="button" className="btn claro mini" onClick={irParaTrilha}>Ir para as trilhas e registrar</button></div>
           <div className="tabela-caixa"><table>
-            <thead><tr><th>Pessoa</th><th>Treinamento</th><th>Situação</th><th>Última aplicação</th></tr></thead>
-            <tbody>{m.pendencias.slice(0, 30).map((x) => <tr key={`${x.pessoa.id}-${x.trilha.id}`}><td>{x.pessoa.nome}</td><td>{x.trilha.nome}</td><td>{celula(x)}</td><td className="tnum">{x.ultima ? dataCurta(x.ultima) : "—"}</td></tr>)}</tbody>
+            <thead><tr><th>Pessoa</th><th>Treinamento</th><th>Situação</th><th>Última aplicação</th><th>Agendado</th></tr></thead>
+            <tbody>{m.pendencias.slice(0, 30).map((x) => <tr key={`${x.pessoa.id}-${x.trilha.id}`}><td>{x.pessoa.nome}</td><td>{x.trilha.nome}</td><td>{celula(x)}</td><td className="tnum">{x.ultima ? dataCurta(x.ultima) : "—"}</td><td className="tnum">{x.agendada ? dataCurta(x.agendada.data) : <span className="suave">não</span>}</td></tr>)}</tbody>
           </table></div>
         </Card>
       )}
-
-      <Card semPad>
-        <div className="card-cab"><h2>Periodicidade de cada treinamento</h2>{msg && <span className="peq suave">{msg}</span>}</div>
-        <div className="tabela-caixa"><table>
-          <thead><tr><th>Treinamento</th><th>Para</th><th>Refazer</th></tr></thead>
-          <tbody>{TRILHAS.map((t) => (
-            <tr key={t.id}>
-              <td>{t.nome}</td>
-              <td className="peq suave">{t.publico}</td>
-              <td><select className="entrada" style={{ maxWidth: 240 }} aria-label={`Periodicidade de ${t.nome}`} value={per[t.id] ?? 0} onChange={(e) => mudar(t.id, e.target.value)}>
-                {OPCOES_PERIODO.map(([v, r]) => <option key={v} value={v}>{r}</option>)}
-              </select></td>
-            </tr>
-          ))}</tbody>
-        </table></div>
-        <div className="suave peq" style={{ padding: "0 20px 16px" }}>Os valores iniciais são sugestões (anual para os treinamentos ligados à ISO/IEC 17025 e ao CRM). Treinamentos com reciclagem valem para toda a equipe do setor. A ISO/IEC 17025 (6.2) pede monitorar a competência do pessoal: esta tela e os registros de aplicação são a evidência.</div>
-      </Card>
     </>
+  );
+}
+
+/** Calendário de aplicação: datas agendadas por treinamento. */
+function Calendario() {
+  const { dados, gravar, remover } = useBase();
+  const hoje = hojeBR();
+  const vazio = { trilhaId: TRILHAS[0].id, data: "", hora: "", local: "", responsavel: "", obs: "" };
+  const [f, setF] = useState(vazio);
+  const [msg, setMsg] = useState("");
+  const [passadas, setPassadas] = useState(false);
+  const lista = agenda(dados.treinamentos, { desde: passadas ? "" : hoje });
+  const porMes = lista.reduce((acc, a) => { const k = String(a.data).slice(0, 7); (acc[k] ||= []).push(a); return acc; }, {});
+  const agendar = async (e) => {
+    e.preventDefault();
+    if (!f.data) { setMsg("Escolha a data."); return; }
+    setMsg("");
+    try {
+      const t = trilhaPorId(f.trilhaId);
+      await gravar("treinamentos", { id: `ag-${Date.now().toString(36)}`, tipo: "agenda", ...f, titulo: t?.nome || "" });
+      setF({ ...vazio, trilhaId: f.trilhaId }); setMsg("Aplicação agendada.");
+    } catch (e2) { setMsg(e2.message); }
+  };
+  const campo = (k, rot, props = {}) => <label className="campo" style={{ flex: props.flex || "1 1 140px" }}><span>{rot}</span><input className="entrada" value={f[k]} onChange={(e) => setF({ ...f, [k]: e.target.value })} {...props} /></label>;
+  return (
+    <Card semPad>
+      <div className="card-cab"><h2>Calendário de aplicação</h2><label className="peq suave" style={{ display: "flex", gap: 6, alignItems: "center" }}><input type="checkbox" checked={passadas} onChange={(e) => setPassadas(e.target.checked)} />Mostrar datas passadas</label></div>
+      <form onSubmit={agendar} style={{ padding: "0 20px 12px", display: "flex", flexWrap: "wrap", gap: 10, alignItems: "flex-end" }}>
+        <label className="campo" style={{ flex: "2 1 220px" }}><span>Treinamento</span><select className="entrada" value={f.trilhaId} onChange={(e) => setF({ ...f, trilhaId: e.target.value })}>{TRILHAS.map((t) => <option key={t.id} value={t.id}>{t.nome}</option>)}</select></label>
+        {campo("data", "Data", { type: "date", flex: "1 1 150px" })}
+        {campo("hora", "Hora", { type: "time", flex: "0 1 110px" })}
+        {campo("local", "Local")}
+        {campo("responsavel", "Quem aplica")}
+        {campo("obs", "Observação", { flex: "2 1 200px" })}
+        <button type="submit" className="btn">Agendar</button>
+        {msg && <span className="peq suave">{msg}</span>}
+      </form>
+      {lista.length === 0 ? <div className="vazio" style={{ padding: "0 20px 20px" }}>Nenhuma aplicação agendada.</div> : (
+        <div className="tabela-caixa"><table>
+          <thead><tr><th>Data</th><th>Treinamento</th><th>Local</th><th>Quem aplica</th><th>Observação</th><th /></tr></thead>
+          <tbody>{Object.entries(porMes).flatMap(([mes, itens]) => [
+            <tr key={mes}><td colSpan={6} style={{ background: "var(--fundo-2, #f4f6f8)", fontWeight: 600 }}>{mesNome(mes)} {mes.slice(0, 4)}</td></tr>,
+            ...itens.map((a) => (
+              <tr key={a.id}>
+                <td className="tnum">{dataCurta(a.data)}{a.hora ? ` · ${a.hora}` : ""}{a.data < hoje && <div className="suave peq">passou</div>}</td>
+                <td>{trilhaPorId(a.trilhaId)?.nome || a.titulo}</td>
+                <td className="peq">{a.local || "—"}</td>
+                <td className="peq">{a.responsavel || "—"}</td>
+                <td className="peq">{a.obs || ""}</td>
+                <td><button type="button" className="btn perigo mini" onClick={() => window.confirm("Tirar esta data do calendário?") && remover("treinamentos", a.id)}>Apagar</button></td>
+              </tr>
+            )),
+          ])}</tbody>
+        </table></div>
+      )}
+      <div className="suave peq" style={{ padding: "0 20px 16px" }}>Depois de aplicar, registre quem participou em Trilhas → Registrar aplicação; é esse registro que conta para a reciclagem e aparece no perfil da pessoa.</div>
+    </Card>
   );
 }
 

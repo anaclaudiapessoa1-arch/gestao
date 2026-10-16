@@ -162,11 +162,11 @@ export default function Pessoas({ param }) {
           <Paginacao pag={pagFb} rotulo="conversas" />
         </Card>}
       {aba === "treinamentos" && recic.periodicas.length > 0 && <Card semPad>
-          <div className="card-cab"><h3>Reciclagens</h3><span className="suave peq">conta a partir da última aplicação</span></div>
+          <div className="card-cab"><h3>Treinamentos obrigatórios do cargo</h3><span className="suave peq">pelo plano de treinamentos</span></div>
           <div className="tabela-caixa"><table>
-            <thead><tr><th>Treinamento</th><th>Última vez</th><th>Próxima até</th><th>Situação</th></tr></thead>
-            <tbody>{recic.periodicas.map((t) => { const c = recic.linhas[0].celulas[t.id]; const tom = { "em-dia": "ok", vence: "alerta", vencido: "ruim", nunca: "neutro" }[c.status]; const rot = { "em-dia": "Em dia", vence: "Vence em breve", vencido: "Vencido", nunca: "Nunca fez" }[c.status]; return (
-              <tr key={t.id}><td>{t.nome}</td><td className="tnum">{c.ultima ? dataCurta(c.ultima) : "—"}</td><td className="tnum">{c.vence ? dataCurta(c.vence) : "—"}</td><td><Chip tom={tom}>{rot}</Chip></td></tr>
+            <thead><tr><th>Treinamento</th><th>Última vez</th><th>Próxima até</th><th>Situação</th><th>Agendado</th></tr></thead>
+            <tbody>{recic.periodicas.filter((t) => recic.linhas[0].celulas[t.id].status !== "nao-se-aplica").map((t) => { const c = recic.linhas[0].celulas[t.id]; const tom = { "em-dia": "ok", vence: "alerta", vencido: "ruim", nunca: "neutro", pendente: "alerta" }[c.status]; const rot = { "em-dia": "Em dia", vence: "Vence em breve", vencido: "Vencido", nunca: "Nunca fez", pendente: "Novo: fazer" }[c.status]; const ag = recic.proxima[t.id]; return (
+              <tr key={t.id}><td>{t.nome}</td><td className="tnum">{c.ultima ? dataCurta(c.ultima) : "—"}</td><td className="tnum">{c.vence ? dataCurta(c.vence) : "—"}</td><td><Chip tom={tom}>{rot}</Chip></td><td className="tnum">{ag ? dataCurta(ag.data) : "—"}</td></tr>
             ); })}</tbody>
           </table></div>
         </Card>}
