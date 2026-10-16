@@ -6,6 +6,8 @@ import { Card, Chip, Cabecalho, Abas } from "../components/ui.jsx";
 import { Estudio } from "../components/Estudio.jsx";
 import { Orientacao } from "../components/Orientacao.jsx";
 import { Slides } from "../components/Slides.jsx";
+import { Apresentador } from "../components/Deck.jsx";
+import { slidesDoModelo, modeloPorId } from "../lib/modelosApresentacao.js";
 import { npsCRM, licitacoesCRM } from "../services/crm.js";
 import { TRILHAS, trilhaPorId } from "../lib/trilhas.js";
 import { hojeBR, dataCurta, mesAtual, somarMeses, mesDeData, mesNome, pct } from "../lib/format.js";
@@ -128,7 +130,8 @@ function Trilhas() {
             </div>
           )}
 
-          {modo === "slides" && (
+          {modo === "slides" && t.modelo && <SlidesDoModelo key={t.id} modelo={t.modelo} />}
+          {modo === "slides" && !t.modelo && (
             <Slides titulo={`Treinamento · ${t.nome}`} slides={[
               { titulo: t.nome, corpo: <div><div style={{ fontSize: "1.3em" }}>{t.objetivo}</div><div className="suave" style={{ marginTop: 12 }}>{t.publico} · {t.minutos} minutos</div></div>, roteiro: t.roteiro[0]?.passo, minutos: 2 },
               ...t.slides.map((x, k) => ({ titulo: `${k + 1}. ${x.split(":")[0].split(".")[0].slice(0, 60)}`, corpo: <div style={{ fontSize: "1.3em", lineHeight: 1.5 }}>{x}</div>, minutos: 3 })),
@@ -162,6 +165,19 @@ function Trilhas() {
         </div>
       </div>
     </>
+  );
+}
+
+/** Trilha com apresentação própria (ex.: análise crítica, estilo colorido). */
+function SlidesDoModelo({ modelo }) {
+  const [slides] = useState(() => slidesDoModelo(modelo));
+  const [i, setI] = useState(0);
+  const m = modeloPorId(modelo);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <Apresentador slides={slides} ctx={{ tema: m?.tema, valores: { mes: "", ano: "" } }} i={i} setI={setI} />
+      <div className="suave peq">Para editar os slides, baixar em PowerPoint ou gerar a ata, crie a apresentação pela aba <b>Apresentações de treinamento</b> com o modelo “{m?.nome}”.</div>
+    </div>
   );
 }
 
