@@ -46,7 +46,7 @@ function useContexto(deck) {
     const fotos = Object.fromEntries((dados.fotos || []).filter((f) => f.foto).map((f) => [f.id, f.foto]));
     const ncs = resumoNcs(dados.ncs || [], ref);
     const produtividade = resumoProdutividade(dados.produtividade || [], ref);
-    return { mes: ref, valores, indicadores, serie: ser, podio: top, fotos, anterior: anterior?.ata || [], ata: deck.ata || [], setores: set.dados, erroSetores: set.erro, lab: lab.dados, erroLab: lab.erro, ncs, produtividade };
+    return { tema: deck.tema || "classico", mes: ref, valores, indicadores, serie: ser, podio: top, fotos, anterior: anterior?.ata || [], ata: deck.ata || [], setores: set.dados, erroSetores: set.erro, lab: lab.dados, erroLab: lab.erro, ncs, produtividade };
   }, [deck, resumo, config, dados, elenco, pesq.lista, precisaRanking, base.mes, set.dados, set.erro, lab.dados, lab.erro]);
 }
 
@@ -69,7 +69,7 @@ export function Estudio({ categoria }) {
           const amostra = { ...m.slides()[0], id: "x" };
           return (
             <Card key={m.id} className="modelo-cartao" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <SlideML s={amostra} ctx={{ valores: { mes: "Mês e ano", ano: "2026" } }} />
+              <SlideML s={amostra} ctx={{ tema: m.tema, valores: { mes: "Mês e ano", ano: "2026" } }} />
               <div><b>{m.nome}</b><div className="suave peq" style={{ marginTop: 2 }}>{m.desc}</div></div>
               <button type="button" className="btn mini" style={{ marginTop: "auto", alignSelf: "flex-start" }} onClick={() => setNovo(m)}>Usar este modelo</button>
             </Card>
@@ -84,7 +84,7 @@ export function Estudio({ categoria }) {
             {pag.itens.map((d) => (
               <div key={d.id} className="deck-item">
                 <button type="button" className="deck-capa" onClick={() => setAberto(d.id)} aria-label={`Abrir ${d.titulo}`}>
-                  <SlideML s={d.slides.find((s) => !s.oculto) || d.slides[0]} ctx={{ valores: { mes: mesLongo(d.ref), ano: d.ref.slice(0, 4) } }} />
+                  <SlideML s={d.slides.find((s) => !s.oculto) || d.slides[0]} ctx={{ tema: d.tema, valores: { mes: mesLongo(d.ref), ano: d.ref.slice(0, 4) } }} />
                 </button>
                 <div style={{ minWidth: 0 }}>
                   <b className="deck-tit">{d.titulo}</b>
@@ -119,7 +119,7 @@ function NovaApresentacao({ modelo, categoria, aoFechar, aoCriar }) {
       const slides = copiar && ultima
         ? ultima.slides.map((s) => ({ ...s, id: novoId("s"), ...(s.layout === "indicadores" ? { amostras: "", amostrasAnterior: s.amostras || "", texto: "" } : {}), ...(s.layout === "destaque" ? { nome: "", foto: "", setor: "" } : {}) }))
         : slidesDoModelo(modelo.id);
-      const d = await gravar("apresentacoes", { modelo: modelo.id, categoria: modelo.categoria === "ambos" ? categoria : modelo.categoria, titulo: titulo.trim() || modelo.nome, ref, slides, ata: [], atualizadoEm: new Date().toISOString() });
+      const d = await gravar("apresentacoes", { tema: modelo.copiaDe?.tema || modelo.tema || "classico", modelo: modelo.id, categoria: modelo.categoria === "ambos" ? categoria : modelo.categoria, titulo: titulo.trim() || modelo.nome, ref, slides, ata: [], atualizadoEm: new Date().toISOString() });
       aoCriar(d.id);
     } catch (e) { setErro(e.message); }
   };
@@ -230,6 +230,10 @@ function Editor({ deck: inicial, aoVoltar }) {
         <input type="month" className="entrada" style={{ width: 160 }} aria-label="Mês de referência" value={deck.ref} onChange={(e) => e.target.value && setDeck({ ...deck, ref: e.target.value })} />
         <span className={`peq estado-${estado}`}>{{ salvo: "✓ Salvo", pendente: "Alterações…", salvando: "Salvando…", erro: "Não salvou. Confira a conexão." }[estado]}</span>
         <div style={{ display: "flex", gap: 6, marginLeft: "auto", flexWrap: "wrap" }}>
+          <select className="entrada" style={{ width: "auto" }} aria-label="Estilo dos slides" value={deck.tema || "classico"} onChange={(e) => setDeck({ ...deck, tema: e.target.value })}>
+            <option value="classico">Estilo clássico</option>
+            <option value="colorido">Estilo colorido</option>
+          </select>
           <div className="pilulas" role="tablist">
             <button type="button" role="tab" aria-selected={modo === "editar"} className={`pilula${modo === "editar" ? " ativa" : ""}`} onClick={() => setModo("editar")}>Editar</button>
             <button type="button" role="tab" aria-selected={modo === "apresentar"} className={`pilula${modo === "apresentar" ? " ativa" : ""}`} onClick={() => setModo("apresentar")}>Ver como apresentação</button>
@@ -298,7 +302,7 @@ function NovoSlide({ aoEscolher }) {
     <select className="entrada peq" aria-label="Adicionar slide" value={v} onChange={(e) => { if (e.target.value) { aoEscolher(e.target.value); setV(""); } }}>
       <option value="">+ Adicionar slide…</option>
       <optgroup label="Livres (você escreve)">
-        {["topicos", "colunas", "tabela", "grafico", "imagem", "numero", "fluxo", "agenda", "frase", "aviso", "capa", "encerramento"].filter((id) => LAYOUTS[id]).map((id) => <option key={id} value={id}>{LAYOUTS[id].nome}</option>)}
+        {["topicos", "colunas", "quiz", "tabela", "grafico", "imagem", "numero", "fluxo", "agenda", "frase", "aviso", "capa", "encerramento"].filter((id) => LAYOUTS[id]).map((id) => <option key={id} value={id}>{LAYOUTS[id].nome}</option>)}
       </optgroup>
       <optgroup label="Automáticos (dados do sistema)">
         {Object.entries(LAYOUTS).filter(([, l]) => l.auto || l.campos.includes("escala")).map(([id, l]) => <option key={id} value={id}>{l.nome}</option>)}

@@ -3,6 +3,7 @@
 // roteiro de fala vai para as anotações do apresentador.
 import PptxGenJS from "pptxgenjs";
 import { toPng } from "html-to-image";
+import { paginasDoDeck } from "../components/Deck.jsx";
 
 const nomeArquivo = (t) => `${String(t || "Apresentação").replace(/[\\/:*?"<>|]/g, "").trim() || "Apresentação"}.pptx`;
 
@@ -16,7 +17,8 @@ export async function baixarPptx({ titulo, slides, container, aoProgresso }) {
     await document.fonts?.ready;
     await new Promise((r) => setTimeout(r, 150));
     const els = [...container.querySelectorAll(".slide-impresso .dk-slide")];
-    if (els.length !== slides.length) throw new Error("Não consegui preparar os slides. Recarregue a página e tente de novo.");
+    const pags = paginasDoDeck(slides); // o quiz sai em duas páginas: pergunta e resposta
+    if (els.length !== pags.length) throw new Error("Não consegui preparar os slides. Recarregue a página e tente de novo.");
     const pptx = new PptxGenJS();
     pptx.layout = "LAYOUT_WIDE"; // 16:9, 13,33 × 7,5 pol
     pptx.title = titulo || "Apresentação";
@@ -26,7 +28,9 @@ export async function baixarPptx({ titulo, slides, container, aoProgresso }) {
       const png = await toPng(els[i], { pixelRatio: 2, cacheBust: true });
       const s = pptx.addSlide();
       s.addImage({ data: png, x: 0, y: 0, w: 13.333, h: 7.5 });
-      if (slides[i].notas) s.addNotes(String(slides[i].notas));
+      const { s: sl, revelado } = pags[i];
+      const notas = [sl.notas, sl.layout === "quiz" && !revelado && sl.destaque ? `Resposta: ${sl.destaque}` : ""].filter(Boolean).join("\n\n");
+      if (notas) s.addNotes(String(notas));
     }
     await pptx.writeFile({ fileName: nomeArquivo(titulo) });
   } finally {

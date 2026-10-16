@@ -117,6 +117,13 @@ function Destaque({ texto, ctx, escuro }) {
   return <div className={`dk-callout${escuro ? " escuro" : ""}`}>{t}</div>;
 }
 
+/** Pílulas coloridas da capa no estilo colorido ("Tema 1 · Tema 2 · …"). */
+function Pilulas({ texto, ctx }) {
+  const ps = T(texto || "", ctx).split("·").map((x) => x.trim()).filter(Boolean);
+  if (!ps.length) return <div className="dk-pilulas">{[0, 1, 2, 3, 4, 5].map((i) => <span key={i} className="vazia" />)}</div>;
+  return <div className="dk-pilulas">{ps.map((x, i) => <span key={i}>{x}</span>)}</div>;
+}
+
 function Moldura({ s, ctx, n, total, children, classe = "" }) {
   return (
     <div className={`dk-slide ${classe}`}>
@@ -132,10 +139,11 @@ function Moldura({ s, ctx, n, total, children, classe = "" }) {
 const RENDER = {
   capa: ({ s, ctx }) => (
     <div className="dk-slide dk-escuro dk-capa">
-      <Logo claro />
+      <Logo claro={ctx?.tema !== "colorido"} />
       <div className="dk-capa-tit">{T(s.titulo, ctx)}</div>
       {s.subtitulo && <div className="dk-capa-sub">{T(s.subtitulo, ctx)}</div>}
       {s.texto && <div className="dk-capa-txt">{T(s.texto, ctx)}</div>}
+      {ctx?.tema === "colorido" && <Pilulas texto={s.destaque} ctx={ctx} />}
     </div>
   ),
   encerramento: ({ s, ctx }) => (
@@ -143,7 +151,8 @@ const RENDER = {
       <div className="dk-capa-tit grande">{T(s.titulo, ctx)}</div>
       {s.subtitulo && <div className="dk-capa-sub">{T(s.subtitulo, ctx)}</div>}
       {s.texto && <div className="dk-capa-txt">{T(s.texto, ctx)}</div>}
-      <div style={{ marginTop: "3cqw" }}><Logo claro /></div>
+      {ctx?.tema === "colorido" && <Pilulas texto={s.destaque} ctx={ctx} />}
+      <div style={{ marginTop: "3cqw" }}><Logo claro={ctx?.tema !== "colorido"} /></div>
     </div>
   ),
   agenda: (p) => {
@@ -225,7 +234,7 @@ const RENDER = {
         <div>{T(s.texto, ctx)}</div>
         {s.destaque && <div className="dk-aviso-menor">{T(s.destaque, ctx)}</div>}
       </div>
-      <Logo claro />
+      <Logo claro={ctx?.tema !== "colorido"} />
     </div>
   ),
   frase: (p) => (
@@ -505,6 +514,27 @@ const RENDER = {
       </Moldura>
     );
   },
+  quiz: (p) => {
+    const alts = linhas(T(p.s.itens, p.ctx)).map((l) => ({ certa: l.startsWith("*"), texto: l.replace(/^\*\s*/, "") }));
+    const rev = !!p.revelado;
+    return (
+      <Moldura {...p} classe="dk-quiz-slide">
+        <div className="dk-col" style={{ gap: "1.6cqw" }}>
+          <div className="dk-quiz-perg"><span className="dk-quiz-selo">?</span><span>{T(p.s.texto, p.ctx)}</span></div>
+          {alts.length > 0 && (
+            <div className={`dk-quiz-alts${alts.length > 2 ? " duas" : ""}`}>
+              {alts.map((a, i) => (
+                <div key={i} className={`dk-quiz-alt${rev ? (a.certa ? " certa" : " errada") : ""}`}>
+                  <b>{rev && a.certa ? "✓" : String.fromCharCode(65 + i)}</b><span>{a.texto}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {rev ? <Destaque texto={p.s.destaque} ctx={p.ctx} /> : <div className="dk-quiz-dica">{p.interativo ? "Clique no slide ou aperte → para mostrar a resposta" : "Discuta em grupo antes de ver a resposta"}</div>}
+        </div>
+      </Moldura>
+    );
+  },
   combinados: (p) => {
     const its = p.ctx.anterior || [];
     return (
@@ -536,9 +566,14 @@ function Aguardando({ texto }) {
 }
 
 /** Um slide. `ctx` traz os valores dos marcadores e os dados automáticos. */
-export function SlideML({ s, ctx, n, total }) {
+export function SlideML({ s, ctx, n, total, revelado = false, interativo = false }) {
   const R = RENDER[s.layout] || RENDER.topicos;
-  return <div className="dk"><R s={s} ctx={ctx} n={n} total={total} /></div>;
+  return <div className={`dk${ctx?.tema === "colorido" ? " dk-cor" : ""}`}><R s={s} ctx={ctx} n={n} total={total} revelado={revelado} interativo={interativo} /></div>;
+}
+
+/** Páginas de impressão/PowerPoint: o quiz sai duas vezes (pergunta e depois a resposta). */
+export function paginasDoDeck(slides) {
+  return slides.flatMap((s) => (s.layout === "quiz" ? [{ s, revelado: false }, { s, revelado: true }] : [{ s, revelado: false }]));
 }
 
 /** Visualizador: slide grande, setas, tela cheia e impressão (um slide por página). */
@@ -547,6 +582,12 @@ export function Apresentador({ slides, ctx, i, setI, notas = true }) {
   const [cheia, setCheia] = useState(false);
   const vis = slides;
   const atual = vis[Math.min(i, vis.length - 1)];
+  const [revelados, setRevelados] = useState({});
+  // No quiz, o primeiro "avançar" mostra a resposta; o segundo vai para o próximo slide.
+  const avancar = () => {
+    if (atual?.layout === "quiz" && !revelados[atual.id]) { setRevelados((r) => ({ ...r, [atual.id]: true })); return; }
+    setI((x) => Math.min(x + 1, vis.length - 1));
+  };
   useEffect(() => {
     const f = () => setCheia(document.fullscreenElement === palco.current);
     document.addEventListener("fullscreenchange", f);
@@ -555,20 +596,20 @@ export function Apresentador({ slides, ctx, i, setI, notas = true }) {
   useEffect(() => {
     const f = (e) => {
       if (!document.fullscreenElement) return;
-      if (["ArrowRight", "PageDown", " "].includes(e.key)) { e.preventDefault(); setI((x) => Math.min(x + 1, vis.length - 1)); }
+      if (["ArrowRight", "PageDown", " "].includes(e.key)) { e.preventDefault(); avancar(); }
       if (["ArrowLeft", "PageUp"].includes(e.key)) { e.preventDefault(); setI((x) => Math.max(x - 1, 0)); }
     };
     window.addEventListener("keydown", f);
     return () => window.removeEventListener("keydown", f);
-  }, [vis.length, setI]);
+  }); // eslint-disable-line react-hooks/exhaustive-deps
   if (!atual) return <div className="vazio">Nenhum slide visível.</div>;
   return (
     <>
-      <div ref={palco} className={`dk-palco${cheia ? " cheia" : ""}`} onClick={(e) => { if (cheia && !e.target.closest("button")) setI((x) => Math.min(x + 1, vis.length - 1)); }}>
-        <SlideML s={atual} ctx={ctx} n={i + 1} total={vis.length} />
+      <div ref={palco} className={`dk-palco${cheia ? " cheia" : ""}`} onClick={(e) => { if ((cheia || atual.layout === "quiz") && !e.target.closest("button")) avancar(); }}>
+        <SlideML s={atual} ctx={ctx} n={i + 1} total={vis.length} revelado={!!revelados[atual.id]} interativo />
         <div className="palco-nav">
           <button type="button" aria-label="Slide anterior" onClick={() => setI((x) => Math.max(x - 1, 0))} disabled={i === 0}>‹</button>
-          <button type="button" aria-label="Próximo slide" onClick={() => setI((x) => Math.min(x + 1, vis.length - 1))} disabled={i >= vis.length - 1}>›</button>
+          <button type="button" aria-label="Próximo slide" onClick={avancar} disabled={i >= vis.length - 1 && (atual.layout !== "quiz" || revelados[atual.id])}>›</button>
           {!cheia && <button type="button" aria-label="Tela cheia" title="Apresentar em tela cheia" onClick={() => palco.current?.requestFullscreen?.().catch(() => {})}>⛶</button>}
         </div>
       </div>
@@ -581,7 +622,7 @@ export function Apresentador({ slides, ctx, i, setI, notas = true }) {
 export function ImpressaoDeck({ slides, ctx, refEl }) {
   return (
     <div className="impressao" aria-hidden="true" ref={refEl}>
-      {slides.map((s, k) => <div key={s.id || k} className="slide-impresso dk-impresso"><SlideML s={s} ctx={ctx} n={k + 1} total={slides.length} /></div>)}
+      {paginasDoDeck(slides).map(({ s, revelado }, k) => <div key={`${s.id || k}-${revelado}`} className="slide-impresso dk-impresso"><SlideML s={s} ctx={ctx} n={slides.indexOf(s) + 1} total={slides.length} revelado={revelado} /></div>)}
     </div>
   );
 }

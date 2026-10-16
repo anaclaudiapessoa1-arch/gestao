@@ -123,6 +123,10 @@ export function itemDoSlide(s, ctx = {}) {
         ),
       };
     }
+    case "quiz": {
+      const certa = linhas(T(s.itens, ctx)).find((l) => l.startsWith("*"));
+      return { titulo, corpo: junta(T(s.texto, ctx), certa ? `- Resposta: ${certa.replace(/^\*\s*/, "")}` : null, dest) };
+    }
     case "combinados": {
       const its = ctx.anterior || [];
       return its.length ? { titulo, corpo: junta("Foram revisados os combinados da reunião anterior:", its.map((x) => `- ${x.texto}${x.dono ? ` (${x.dono})` : ""}: ${x.feito ? "concluído" : "pendente"}`)) } : null;
