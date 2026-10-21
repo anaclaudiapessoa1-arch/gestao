@@ -1,3 +1,8 @@
+> **Este repositório virou cópia de segurança.** A Gestão agora fica dentro do
+> painel MinasLab: [leogpereira-afk/minaslab-painel](https://github.com/leogpereira-afk/minaslab-painel),
+> pasta `gestao/`, publicada em https://leogpereira-afk.github.io/minaslab-painel/gestao/.
+> Este endereço antigo só redireciona para lá. Mudanças novas vão no painel.
+
 # Comercial · MinasLab
 
 Painel de gestão do setor comercial: metas × realizado, pontos a melhorar,
